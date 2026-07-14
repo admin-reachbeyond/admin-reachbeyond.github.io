@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monthly Results — All Locations</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f5f3; --surface: #ffffff; --border: #e4e4e0; --border-light: #efefec;
+  --text: #1a1a18; --muted: #737370; --faint: #a8a8a4;
+  --green: #3B6D11; --green-bg: #EAF3DE;
+  --amber: #854F0B; --amber-bg: #FAEEDA;
+  --red: #A32D2D; --red-bg: #FCEBEB;
+  --teal: #085041; --teal-bg: #E1F5EE;
+  --blue: #378ADD; --radius: 10px; --radius-sm: 6px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+.main { max-width: 1300px; margin: 0 auto; padding: 2rem; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+.card-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+.field-label { font-size: 11px; font-weight: 500; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+.grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px; }
+input, select { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--bg); color: var(--text); }
+input:focus, select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,.12); background: #fff; }
+.btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button { height: 36px; padding: 0 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .15s; }
+.btn-primary { background: var(--text); color: #fff; border: none; }
+.btn-primary:hover { opacity: .85; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--bg); color: var(--text); }
+.btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
+.status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin-left: 4px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+.dot.ok { background: var(--green); }
+.dot.err { background: var(--red); }
+.dot.busy { background: #EF9F27; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.hint { font-size: 11px; color: var(--faint); margin-top: 8px; line-height: 1.6; }
+.raw-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 11px; font-family: monospace; color: var(--muted); margin-top: 10px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; display: none; }
+.notice { background: var(--amber-bg); color: var(--amber); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; margin-bottom: 1.25rem; line-height: 1.6; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.25rem; }
+.metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
+.metric-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.metric-value { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -.5px; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+.filter-row { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+.filter-row input { width: 220px; height: 32px; font-size: 12px; }
+.filter-row select { width: 170px; height: 32px; font-size: 12px; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { font-size: 11px; font-weight: 600; color: var(--muted); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; background: var(--bg); }
+td { padding: 10px 10px; border-bottom: 1px solid var(--border-light); color: var(--text); vertical-align: middle; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg); }
+tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: var(--bg); }
+.loc-name { font-weight: 600; font-size: 13px; }
+.sync-info { font-size: 12px; color: var(--faint); }
+@media (max-width: 900px) { .metrics { grid-template-columns: 1fr 1fr; } .main { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div> Monthly Results</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="sync-info" id="lastSync"></span>
+    <button class="btn-ghost btn-sm" onclick="fetchData()">↻ Refresh</button>
+    <button class="btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Connection -->
+  <div class="card">
+    <div class="card-title">🔌 Data connection</div>
+    <div class="grid2">
+      <div>
+        <div class="field-label">Monthly Results Apps Script URL</div>
+        <input id="scriptUrl" value="" placeholder="Paste your monthly extraction script's /exec URL" />
+      </div>
+      <div>
+        <div class="field-label">Currency</div>
+        <select id="currency">
+          <option value="A$">AUD (A$)</option>
+          <option value="$">USD ($)</option>
+          <option value="£">GBP (£)</option>
+          <option value="€">EUR (€)</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="fetchData()">↻ Fetch data</button>
+      <button class="btn-ghost" onclick="toggleRaw()">Show raw response</button>
+      <div class="status"><span class="dot" id="sdot"></span><span id="smsg">Not connected</span></div>
+    </div>
+    <div class="raw-box" id="rawBox"></div>
+    <p class="hint">This currently points at a single source. Once the master monthly aggregator combining Google Ads (both accounts) and Microsoft Ads is ready, this URL will be swapped to point there instead — no other changes needed.</p>
+  </div>
+
+  <div class="notice" id="historyNotice">
+    📊 Month-over-month comparison isn't available yet — this dashboard needs at least one full historical snapshot logged before it can show "vs last month" figures. This will start appearing automatically once monthly snapshots begin logging.
+  </div>
+
+  <!-- Summary metrics -->
+  <div class="metrics" id="metricsGrid">
+    <div class="metric"><div class="metric-label">Total cost</div><div class="metric-value" id="mCost">—</div></div>
+    <div class="metric"><div class="metric-label">Total clicks</div><div class="metric-value" id="mClicks">—</div></div>
+    <div class="metric"><div class="metric-label">Total impressions</div><div class="metric-value" id="mImpr">—</div></div>
+    <div class="metric"><div class="metric-label">Total conversions</div><div class="metric-value" id="mConv">—</div></div>
+    <div class="metric"><div class="metric-label">Avg. CPC</div><div class="metric-value" id="mCpc">—</div></div>
+    <div class="metric"><div class="metric-label">CTR</div><div class="metric-value" id="mCtr">—</div></div>
+    <div class="metric"><div class="metric-label">Cost / conversion</div><div class="metric-value" id="mCostConv">—</div></div>
+    <div class="metric"><div class="metric-label">Conversion rate</div><div class="metric-value" id="mConvRate">—</div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="section-label" style="margin-bottom:12px">Monthly results by location</div>
+    <div class="filter-row">
+      <input id="filterSearch" placeholder="🔍 Search location…" oninput="renderTable()" />
+      <select id="filterSort" onchange="renderTable()">
+        <option value="location">A–Z</option>
+        <option value="cost-desc">Highest cost</option>
+        <option value="conv-desc">Most conversions</option>
+        <option value="convrate-desc">Highest conversion rate</option>
+        <option value="cpc-desc">Highest CPC</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:16%">Location</th>
+            <th style="width:10%">Cost</th>
+            <th style="width:10%">Impressions</th>
+            <th style="width:8%">Clicks</th>
+            <th style="width:9%">Avg. CPC</th>
+            <th style="width:8%">CTR</th>
+            <th style="width:10%">Conversions</th>
+            <th style="width:11%">Cost / conv.</th>
+            <th style="width:10%">Conv. rate</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="9" style="text-align:center;padding:3rem 0;color:var(--faint)">Connect to your Apps Script to load monthly data.</td></tr>
+        </tbody>
+        <tfoot id="tfoot" style="display:none">
+          <tr>
+            <td>Overall</td>
+            <td id="fCost">—</td>
+            <td id="fImpr">—</td>
+            <td id="fClicks">—</td>
+            <td id="fCpc">—</td>
+            <td id="fCtr">—</td>
+            <td id="fConv">—</td>
+            <td id="fCostConv">—</td>
+            <td id="fConvRate">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const URL_KEY = 'monthly_results_url_v1';
+let rows = [], overall = null, lastRaw = '';
+
+function sym() { return document.getElementById('currency').value; }
+function fmt(n) { return sym() + Math.round(n).toLocaleString(); }
+function fmtNum(n) { return Math.round(n).toLocaleString(); }
+function fmtPct(n) { return n.toFixed(2) + '%'; }
+
+function setStatus(msg, state) {
+  document.getElementById('smsg').textContent = msg;
+  document.getElementById('sdot').className = 'dot ' + (state || '');
+}
+
+function loadSaved() {
+  try { const u = localStorage.getItem(URL_KEY); if (u) document.getElementById('scriptUrl').value = u; } catch {}
+}
+
+function persist() {
+  try { localStorage.setItem(URL_KEY, document.getElementById('scriptUrl').value); } catch {}
+}
+
+function toggleRaw() {
+  const box = document.getElementById('rawBox');
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  box.textContent = lastRaw || 'No response yet.';
+}
+
+async function fetchData() {
+  const urlBase = document.getElementById('scriptUrl').value.trim();
+  if (!urlBase) { setStatus('Paste your Apps Script URL above.', 'err'); return; }
+  persist();
+  setStatus('Fetching…', 'busy');
+  lastRaw = '';
+  const url = urlBase + (urlBase.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+  try {
+    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+    const text = await res.text();
+    lastRaw = text;
+    if (document.getElementById('rawBox').style.display === 'block')
+      document.getElementById('rawBox').textContent = text;
+    if (!res.ok) { setStatus('HTTP ' + res.status + ' error.', 'err'); return; }
+    let json;
+    try { json = JSON.parse(text); } catch(e) {
+      setStatus('Invalid JSON — click "Show raw response".', 'err');
+      document.getElementById('rawBox').style.display = 'block';
+      document.getElementById('rawBox').textContent = text.slice(0, 800);
+      return;
+    }
+    if (json.error) { setStatus('Script error: ' + json.error, 'err'); return; }
+    if (!json.data || !Array.isArray(json.data)) { setStatus('No data returned.', 'err'); return; }
+    rows = json.data;
+    overall = json.overall || null;
+    document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
+    setStatus('Connected — ' + rows.length + ' locations.', 'ok');
+    calculate();
+  } catch(e) {
+    lastRaw = e.toString();
+    setStatus('Fetch failed: ' + e.message, 'err');
+  }
+}
+
+function calculate() {
+  if (overall) {
+    document.getElementById('mCost').textContent = fmt(overall.cost);
+    document.getElementById('mClicks').textContent = fmtNum(overall.clicks);
+    document.getElementById('mImpr').textContent = fmtNum(overall.impressions);
+    document.getElementById('mConv').textContent = fmtNum(overall.conversions);
+    document.getElementById('mCpc').textContent = fmt(overall.avgCpc);
+    document.getElementById('mCtr').textContent = fmtPct(overall.ctr);
+    document.getElementById('mCostConv').textContent = fmt(overall.costPerConversion);
+    document.getElementById('mConvRate').textContent = fmtPct(overall.convRate);
+
+    document.getElementById('tfoot').style.display = '';
+    document.getElementById('fCost').textContent = fmt(overall.cost);
+    document.getElementById('fImpr').textContent = fmtNum(overall.impressions);
+    document.getElementById('fClicks').textContent = fmtNum(overall.clicks);
+    document.getElementById('fCpc').textContent = fmt(overall.avgCpc);
+    document.getElementById('fCtr').textContent = fmtPct(overall.ctr);
+    document.getElementById('fConv').textContent = fmtNum(overall.conversions);
+    document.getElementById('fCostConv').textContent = fmt(overall.costPerConversion);
+    document.getElementById('fConvRate').textContent = fmtPct(overall.convRate);
+  }
+  renderTable();
+}
+
+function renderTable() {
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+  const sort = document.getElementById('filterSort').value;
+
+  let data = rows.filter(r => !search || r.location.toLowerCase().includes(search));
+
+  data.sort((a, b) => {
+    if (sort === 'cost-desc')      return b.cost - a.cost;
+    if (sort === 'conv-desc')      return b.conversions - a.conversions;
+    if (sort === 'convrate-desc')  return b.convRate - a.convRate;
+    if (sort === 'cpc-desc')       return b.avgCpc - a.avgCpc;
+    return a.location.localeCompare(b.location);
+  });
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem 0;color:var(--faint)">No locations match your filters.</td></tr>';
+    return;
+  }
+
+  data.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="loc-name">${r.location}</td>
+      <td>${fmt(r.cost)}</td>
+      <td>${fmtNum(r.impressions)}</td>
+      <td>${fmtNum(r.clicks)}</td>
+      <td>${fmt(r.avgCpc)}</td>
+      <td>${fmtPct(r.ctr)}</td>
+      <td>${fmtNum(r.conversions)}</td>
+      <td>${fmt(r.costPerConversion)}</td>
+      <td>${fmtPct(r.convRate)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportCSV() {
+  const rowsOut = [['Location', 'Cost', 'Impressions', 'Clicks', 'Avg CPC', 'CTR', 'Conversions', 'Cost/Conversion', 'Conv Rate']];
+  rows.forEach(r => {
+    rowsOut.push([
+      r.location,
+      r.cost,
+      r.impressions,
+      r.clicks,
+      r.avgCpc,
+      r.ctr + '%',
+      r.conversions,
+      r.costPerConversion,
+      r.convRate + '%'
+    ]);
+  });
+  if (overall) {
+    rowsOut.push(['Overall', overall.cost, overall.impressions, overall.clicks, overall.avgCpc, overall.ctr + '%', overall.conversions, overall.costPerConversion, overall.convRate + '%']);
+  }
+  const csv = rowsOut.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'monthly-results-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+}
+
+loadSaved();
+if (document.getElementById('scriptUrl').value) fetchData();
+</script>
+</body>
+</html>
