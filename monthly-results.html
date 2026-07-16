@@ -161,20 +161,6 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
         <tbody id="tbody">
           <tr><td colspan="10" style="text-align:center;padding:3rem 0;color:var(--faint)">Connect to your Apps Script to load monthly data.</td></tr>
         </tbody>
-        <tfoot id="tfoot" style="display:none">
-          <tr>
-            <td>Overall</td>
-            <td id="fBudget">—</td>
-            <td id="fCost">—</td>
-            <td id="fImpr">—</td>
-            <td id="fClicks">—</td>
-            <td id="fCpc">—</td>
-            <td id="fCtr">—</td>
-            <td id="fConv">—</td>
-            <td id="fCostConv">—</td>
-            <td id="fConvRate">—</td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   </div>
@@ -306,17 +292,6 @@ function calculate() {
     document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood', fmtPct) : '';
     document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt) : '';
     document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct) : '';
-
-    document.getElementById('tfoot').style.display = '';
-    document.getElementById('fBudget').textContent = fmt(overall.allocatedBudget || 0);
-    document.getElementById('fCost').textContent = fmt(overall.cost);
-    document.getElementById('fImpr').textContent = fmtNum(overall.impressions);
-    document.getElementById('fClicks').textContent = fmtNum(overall.clicks);
-    document.getElementById('fCpc').textContent = fmt(overall.avgCpc);
-    document.getElementById('fCtr').textContent = fmtPct(overall.ctr);
-    document.getElementById('fConv').textContent = fmtNum(overall.conversions);
-    document.getElementById('fCostConv').textContent = fmt(overall.costPerConversion);
-    document.getElementById('fConvRate').textContent = fmtPct(overall.convRate);
   }
   renderTable();
 }
