@@ -66,6 +66,7 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
 .var-up { color: var(--green); }
 .var-down { color: var(--red); }
 .var-flat { color: var(--faint); }
+.var-prev { color: var(--faint); font-weight: 500; }
 .cell-main { display: block; }
 .cell-var { display: block; font-size: 10px; font-weight: 600; margin-top: 2px; }
 .comparison-banner { background: var(--teal-bg); color: var(--teal); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; margin-bottom: 1.25rem; line-height: 1.6; }
@@ -91,7 +92,7 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
     <div class="grid2">
       <div>
         <div class="field-label">Monthly Results Apps Script URL</div>
-        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbz3XG-aLFBjEtvb2vebL8ljMdYa1iThuEC2Hqeo7mLZzu_eVpB3pEwob8Z5hHd2rirR/exec" placeholder="Paste your monthly extraction script's /exec URL" />
+        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbxAVD9jBBHicIZ8b8DQewsTS2y2AELcDXNfo0y_qLjme8fPquDlvbVH2_N_0yarU60/exec" placeholder="Paste your monthly extraction script's /exec URL" />
       </div>
       <div>
         <div class="field-label">Currency</div>
@@ -195,7 +196,8 @@ function monthLabel(key) {
 // direction: 'downGood' (e.g. cost, cost/conv — a decrease is good),
 // 'upGood' (e.g. clicks, conversions, conv rate — an increase is good),
 // or 'neutral' (e.g. impressions — just shows the change, no color judgement)
-function varianceHTML(v, direction) {
+// formatter: optional function to format v.previous (e.g. fmt, fmtNum, fmtPct)
+function varianceHTML(v, direction, formatter) {
   if (!v || v.pct === null || v.pct === undefined) return '';
   const pct = v.pct;
   const isUp = pct > 0;
@@ -206,7 +208,10 @@ function varianceHTML(v, direction) {
     cls = good ? 'var-up' : 'var-down';
   }
   const arrow = isFlat ? '·' : (isUp ? '▲' : '▼');
-  return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+  const prevText = (formatter && v.previous !== null && v.previous !== undefined)
+    ? ` <span class="var-prev">(was ${formatter(v.previous)})</span>`
+    : '';
+  return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>${prevText}`;
 }
 
 function sym() { return document.getElementById('currency').value; }
@@ -276,7 +281,7 @@ function calculate() {
     notice.className = 'comparison-banner';
     const co = comparison.overall;
     notice.innerHTML = `📊 Showing <strong>${monthLabel(currentMonthKey)}</strong> vs <strong>${monthLabel(previousMonthKey)}</strong> — ` +
-      `Cost ${varianceHTML(co.cost, 'downGood')}, Conversions ${varianceHTML(co.conversions, 'upGood')}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood')}`;
+      `Cost ${varianceHTML(co.cost, 'downGood', fmt)}, Conversions ${varianceHTML(co.conversions, 'upGood', fmtNum)}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood', fmt)}`;
   } else {
     notice.className = 'notice';
     notice.textContent = '📊 Month-over-month comparison isn\'t available yet — this dashboard needs at least one full historical snapshot logged before it can show "vs last month" figures. This will start appearing automatically once monthly snapshots begin logging.';
@@ -293,14 +298,14 @@ function calculate() {
     document.getElementById('mConvRate').textContent = fmtPct(overall.convRate);
 
     const co = comparison && comparison.hasPreviousData ? comparison.overall : null;
-    document.getElementById('mCostVar').innerHTML = co ? varianceHTML(co.cost, 'downGood') : '';
-    document.getElementById('mClicksVar').innerHTML = co ? varianceHTML(co.clicks, 'upGood') : '';
-    document.getElementById('mImprVar').innerHTML = co ? varianceHTML(co.impressions, 'neutral') : '';
-    document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood') : '';
-    document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood') : '';
-    document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood') : '';
-    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood') : '';
-    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood') : '';
+    document.getElementById('mCostVar').innerHTML = co ? varianceHTML(co.cost, 'downGood', fmt) : '';
+    document.getElementById('mClicksVar').innerHTML = co ? varianceHTML(co.clicks, 'upGood', fmtNum) : '';
+    document.getElementById('mImprVar').innerHTML = co ? varianceHTML(co.impressions, 'neutral', fmtNum) : '';
+    document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood', fmtNum) : '';
+    document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood', fmt) : '';
+    document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood', fmtPct) : '';
+    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt) : '';
+    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct) : '';
 
     document.getElementById('tfoot').style.display = '';
     document.getElementById('fBudget').textContent = fmt(overall.allocatedBudget || 0);
@@ -347,14 +352,14 @@ function renderTable() {
     tr.innerHTML = `
       <td class="loc-name">${r.location}</td>
       <td>${fmt(r.allocatedBudget || 0)}</td>
-      <td><span class="cell-main">${fmt(r.cost)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.cost, 'downGood')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtNum(r.impressions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.impressions, 'neutral')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtNum(r.clicks)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.clicks, 'upGood')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtNum(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood')}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood')}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.cost)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.cost, 'downGood', fmt)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.impressions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.impressions, 'neutral', fmtNum)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.clicks)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.clicks, 'upGood', fmtNum)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood', fmt)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood', fmtPct)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood', fmtNum)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood', fmt)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood', fmtPct)}</span>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
