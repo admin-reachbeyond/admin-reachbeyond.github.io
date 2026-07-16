@@ -120,10 +120,10 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
   <div class="metrics" id="metricsGrid">
     <div class="metric"><div class="metric-label">Total cost</div><div class="metric-value" id="mCost">—</div><div class="metric-sub" id="mCostVar"></div></div>
     <div class="metric"><div class="metric-label">Total clicks</div><div class="metric-value" id="mClicks">—</div><div class="metric-sub" id="mClicksVar"></div></div>
-    <div class="metric"><div class="metric-label">Total impressions</div><div class="metric-value" id="mImpr">—</div></div>
+    <div class="metric"><div class="metric-label">Total impressions</div><div class="metric-value" id="mImpr">—</div><div class="metric-sub" id="mImprVar"></div></div>
     <div class="metric"><div class="metric-label">Total conversions</div><div class="metric-value" id="mConv">—</div><div class="metric-sub" id="mConvVar"></div></div>
-    <div class="metric"><div class="metric-label">Avg. CPC</div><div class="metric-value" id="mCpc">—</div></div>
-    <div class="metric"><div class="metric-label">CTR</div><div class="metric-value" id="mCtr">—</div></div>
+    <div class="metric"><div class="metric-label">Avg. CPC</div><div class="metric-value" id="mCpc">—</div><div class="metric-sub" id="mCpcVar"></div></div>
+    <div class="metric"><div class="metric-label">CTR</div><div class="metric-value" id="mCtr">—</div><div class="metric-sub" id="mCtrVar"></div></div>
     <div class="metric"><div class="metric-label">Cost / conversion</div><div class="metric-value" id="mCostConv">—</div><div class="metric-sub" id="mCostConvVar"></div></div>
     <div class="metric"><div class="metric-label">Conversion rate</div><div class="metric-value" id="mConvRate">—</div><div class="metric-sub" id="mConvRateVar"></div></div>
   </div>
@@ -145,23 +145,25 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
       <table>
         <thead>
           <tr>
-            <th style="width:16%">Location</th>
-            <th style="width:10%">Cost</th>
-            <th style="width:10%">Impressions</th>
-            <th style="width:8%">Clicks</th>
-            <th style="width:9%">Avg. CPC</th>
-            <th style="width:8%">CTR</th>
-            <th style="width:10%">Conversions</th>
-            <th style="width:11%">Cost / conv.</th>
-            <th style="width:10%">Conv. rate</th>
+            <th style="width:14%">Location</th>
+            <th style="width:9%">Budget</th>
+            <th style="width:9%">Cost</th>
+            <th style="width:9%">Impressions</th>
+            <th style="width:7%">Clicks</th>
+            <th style="width:8%">Avg. CPC</th>
+            <th style="width:7%">CTR</th>
+            <th style="width:9%">Conversions</th>
+            <th style="width:10%">Cost / conv.</th>
+            <th style="width:9%">Conv. rate</th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr><td colspan="9" style="text-align:center;padding:3rem 0;color:var(--faint)">Connect to your Apps Script to load monthly data.</td></tr>
+          <tr><td colspan="10" style="text-align:center;padding:3rem 0;color:var(--faint)">Connect to your Apps Script to load monthly data.</td></tr>
         </tbody>
         <tfoot id="tfoot" style="display:none">
           <tr>
             <td>Overall</td>
+            <td id="fBudget">—</td>
             <td id="fCost">—</td>
             <td id="fImpr">—</td>
             <td id="fClicks">—</td>
@@ -190,15 +192,16 @@ function monthLabel(key) {
   return d.toLocaleString('default', { month: 'long', year: 'numeric' });
 }
 
-// direction: 'downGood' (e.g. cost, cost/conv — a decrease is good)
-// or 'upGood' (e.g. clicks, conversions, conv rate — an increase is good)
+// direction: 'downGood' (e.g. cost, cost/conv — a decrease is good),
+// 'upGood' (e.g. clicks, conversions, conv rate — an increase is good),
+// or 'neutral' (e.g. impressions — just shows the change, no color judgement)
 function varianceHTML(v, direction) {
   if (!v || v.pct === null || v.pct === undefined) return '';
   const pct = v.pct;
   const isUp = pct > 0;
   const isFlat = Math.abs(pct) < 0.05;
   let cls = 'var-flat';
-  if (!isFlat) {
+  if (direction !== 'neutral' && !isFlat) {
     const good = direction === 'downGood' ? pct < 0 : pct > 0;
     cls = good ? 'var-up' : 'var-down';
   }
@@ -292,11 +295,15 @@ function calculate() {
     const co = comparison && comparison.hasPreviousData ? comparison.overall : null;
     document.getElementById('mCostVar').innerHTML = co ? varianceHTML(co.cost, 'downGood') : '';
     document.getElementById('mClicksVar').innerHTML = co ? varianceHTML(co.clicks, 'upGood') : '';
+    document.getElementById('mImprVar').innerHTML = co ? varianceHTML(co.impressions, 'neutral') : '';
     document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood') : '';
+    document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood') : '';
+    document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood') : '';
     document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood') : '';
     document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood') : '';
 
     document.getElementById('tfoot').style.display = '';
+    document.getElementById('fBudget').textContent = fmt(overall.allocatedBudget || 0);
     document.getElementById('fCost').textContent = fmt(overall.cost);
     document.getElementById('fImpr').textContent = fmtNum(overall.impressions);
     document.getElementById('fClicks').textContent = fmtNum(overall.clicks);
@@ -327,7 +334,7 @@ function renderTable() {
   tbody.innerHTML = '';
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem 0;color:var(--faint)">No locations match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem 0;color:var(--faint)">No locations match your filters.</td></tr>';
     return;
   }
 
@@ -339,11 +346,12 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="loc-name">${r.location}</td>
+      <td>${fmt(r.allocatedBudget || 0)}</td>
       <td><span class="cell-main">${fmt(r.cost)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.cost, 'downGood')}</span>` : ''}</td>
-      <td>${fmtNum(r.impressions)}</td>
+      <td><span class="cell-main">${fmtNum(r.impressions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.impressions, 'neutral')}</span>` : ''}</td>
       <td><span class="cell-main">${fmtNum(r.clicks)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.clicks, 'upGood')}</span>` : ''}</td>
-      <td>${fmt(r.avgCpc)}</td>
-      <td>${fmtPct(r.ctr)}</td>
+      <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood')}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood')}</span>` : ''}</td>
       <td><span class="cell-main">${fmtNum(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood')}</span>` : ''}</td>
       <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood')}</span>` : ''}</td>
       <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood')}</span>` : ''}</td>
@@ -353,10 +361,11 @@ function renderTable() {
 }
 
 function exportCSV() {
-  const rowsOut = [['Location', 'Cost', 'Impressions', 'Clicks', 'Avg CPC', 'CTR', 'Conversions', 'Cost/Conversion', 'Conv Rate']];
+  const rowsOut = [['Location', 'Budget', 'Cost', 'Impressions', 'Clicks', 'Avg CPC', 'CTR', 'Conversions', 'Cost/Conversion', 'Conv Rate']];
   rows.forEach(r => {
     rowsOut.push([
       r.location,
+      r.allocatedBudget || 0,
       r.cost,
       r.impressions,
       r.clicks,
@@ -368,7 +377,7 @@ function exportCSV() {
     ]);
   });
   if (overall) {
-    rowsOut.push(['Overall', overall.cost, overall.impressions, overall.clicks, overall.avgCpc, overall.ctr + '%', overall.conversions, overall.costPerConversion, overall.convRate + '%']);
+    rowsOut.push(['Overall', overall.allocatedBudget || 0, overall.cost, overall.impressions, overall.clicks, overall.avgCpc, overall.ctr + '%', overall.conversions, overall.costPerConversion, overall.convRate + '%']);
   }
   const csv = rowsOut.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
   const a = document.createElement('a');
