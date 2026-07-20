@@ -92,7 +92,7 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
     <div class="grid2">
       <div>
         <div class="field-label">Monthly Results Apps Script URL</div>
-        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbyZMP8S-lAXE_HljtTPLhAW_tzyCmJ4cnZ4CescLijIX2EJ_QD36pC3RnkkM5TnhRnO/exec" placeholder="Paste your monthly extraction script's /exec URL" />
+        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbxIf1dVI40lVCzT9OS4gjisVN0KRsq5rCLDyn8Rx9WF_kqfFtmqCRsfl6Fhl4DxJZjf/exec" placeholder="Paste your monthly extraction script's /exec URL" />
       </div>
       <div>
         <div class="field-label">Currency</div>
@@ -116,6 +116,8 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
   <div class="notice" id="historyNotice">
     📊 Month-over-month comparison isn't available yet — this dashboard needs at least one full historical snapshot logged before it can show "vs last month" figures. This will start appearing automatically once monthly snapshots begin logging.
   </div>
+
+  <div class="notice" id="unmatchedNotice" style="display:none; background: var(--red-bg); color: var(--red);"></div>
 
   <!-- Summary metrics -->
   <div class="metrics" id="metricsGrid">
@@ -171,6 +173,7 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
 const URL_KEY = 'monthly_results_url_v1';
 let rows = [], overall = null, lastRaw = '';
 let comparison = null, currentMonthKey = null, previousMonthKey = null;
+let unmatchedCost = 0, unmatchedCampaigns = [];
 
 function monthLabel(key) {
   if (!key) return '';
@@ -252,6 +255,8 @@ async function fetchData() {
     comparison = json.comparison || null;
     currentMonthKey = json.currentMonthKey || null;
     previousMonthKey = json.previousMonthKey || null;
+    unmatchedCost = json.unmatchedCost || 0;
+    unmatchedCampaigns = json.unmatchedCampaigns || [];
     document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
     setStatus('Connected — ' + rows.length + ' locations.', 'ok');
     calculate();
@@ -262,6 +267,18 @@ async function fetchData() {
 }
 
 function calculate() {
+  const unmatchedBox = document.getElementById('unmatchedNotice');
+  if (unmatchedCost > 5) {
+    unmatchedBox.style.display = 'block';
+    const topList = unmatchedCampaigns.slice(0, 5)
+      .map(c => `${c.source}: "${c.name}" (${fmt(c.cost)})`)
+      .join('; ');
+    unmatchedBox.innerHTML = `⚠️ ${fmt(unmatchedCost)} in campaign spend didn't match any known location this month — it's excluded from the totals above. ` +
+      `This usually means a new campaign type or naming pattern needs the location-parsing rules updated. Top items: ${topList}${unmatchedCampaigns.length > 5 ? '…' : ''}`;
+  } else {
+    unmatchedBox.style.display = 'none';
+  }
+
   const notice = document.getElementById('historyNotice');
   if (comparison && comparison.hasPreviousData && comparison.overall) {
     notice.className = 'comparison-banner';
