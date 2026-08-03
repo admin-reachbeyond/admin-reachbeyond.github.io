@@ -218,7 +218,15 @@ function setStatus(msg, state) {
 }
 
 function loadSaved() {
-  try { const u = localStorage.getItem(URL_KEY); if (u) document.getElementById('scriptUrl').value = u; } catch {}
+  // The hardcoded default in the HTML above is always the source of
+  // truth — it gets updated every time the Monthly Master Aggregator
+  // is redeployed. We only fall back to a saved localStorage URL if
+  // the field somehow has no default value at all, so a stale saved
+  // URL from a previous deployment can never silently override the
+  // current correct one.
+  const field = document.getElementById('scriptUrl');
+  if (field.value.trim()) return;
+  try { const u = localStorage.getItem(URL_KEY); if (u) field.value = u; } catch {}
 }
 
 function persist() {
