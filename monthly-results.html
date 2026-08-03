@@ -96,7 +96,7 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
     <div class="grid2">
       <div>
         <div class="field-label">Monthly Results Apps Script URL</div>
-        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbxPSfHzTpVeOHzPD95GsbGF3kxgj8JWtjbY3kWj4QeI-RUrFQ40qKPRmGJI-vAl3tyv/exec" placeholder="Paste your monthly extraction script's /exec URL" />
+        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbyNimKdohJtz38OR5u2kVnODjDlUHYKztIgjjtxS0i1YvsNgR1ZsGbW_IZTCHTL7ZNd/exec" placeholder="Paste your monthly extraction script's /exec URL" />
       </div>
       <div>
         <div class="field-label">Currency</div>
@@ -189,12 +189,17 @@ function monthLabel(key) {
 // direction: 'downGood' (e.g. cost, cost/conv — a decrease is good),
 // 'upGood' (e.g. clicks, conversions, conv rate — an increase is good),
 // or 'neutral' (e.g. impressions — just shows the change, no color judgement)
-// formatter: optional function to format v.previous (e.g. fmt, fmtNum, fmtPct)
-function varianceHTML(v, direction, formatter) {
+// formatter: function to format both the displayed current value and v.previous (e.g. fmt, fmtNum, fmtPct)
+// current: the raw current value. If it displays identically to v.previous once formatted (e.g. 6.26
+// and 5.65 both round to "6"), the badge shows a flat "0.0%" instead of the true underlying percentage —
+// otherwise a "6 (was 6)" row with a misleading "+10.8%" looks like a bug, even though the math is correct.
+function varianceHTML(v, direction, formatter, current) {
   if (!v || v.pct === null || v.pct === undefined) return '';
-  const pct = v.pct;
+  const displaysEqual = formatter && current !== undefined && current !== null &&
+    v.previous !== null && v.previous !== undefined && formatter(current) === formatter(v.previous);
+  const pct = displaysEqual ? 0 : v.pct;
   const isUp = pct > 0;
-  const isFlat = Math.abs(pct) < 0.05;
+  const isFlat = displaysEqual || Math.abs(pct) < 0.05;
   let cls = 'var-flat';
   if (direction !== 'neutral' && !isFlat) {
     const good = direction === 'downGood' ? pct < 0 : pct > 0;
@@ -296,7 +301,7 @@ function calculate() {
     notice.className = 'comparison-banner';
     const co = comparison.overall;
     notice.innerHTML = `📊 Showing <strong>${monthLabel(currentMonthKey)}</strong> vs <strong>${monthLabel(previousMonthKey)}</strong> — ` +
-      `Cost ${varianceHTML(co.cost, 'downGood', fmt)}, Conversions ${varianceHTML(co.conversions, 'upGood', fmtNum)}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood', fmt)}`;
+      `Cost ${varianceHTML(co.cost, 'downGood', fmt, overall.cost)}, Conversions ${varianceHTML(co.conversions, 'upGood', fmtNum, overall.conversions)}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion)}`;
   } else {
     notice.className = 'notice';
     notice.textContent = '📊 Month-over-month comparison isn\'t available yet — this dashboard needs at least one full historical snapshot logged before it can show "vs last month" figures. This will start appearing automatically once monthly snapshots begin logging.';
@@ -313,14 +318,14 @@ function calculate() {
     document.getElementById('mConvRate').textContent = fmtPct(overall.convRate);
 
     const co = comparison && comparison.hasPreviousData ? comparison.overall : null;
-    document.getElementById('mCostVar').innerHTML = co ? varianceHTML(co.cost, 'downGood', fmt) : '';
-    document.getElementById('mClicksVar').innerHTML = co ? varianceHTML(co.clicks, 'upGood', fmtNum) : '';
-    document.getElementById('mImprVar').innerHTML = co ? varianceHTML(co.impressions, 'neutral', fmtNum) : '';
-    document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood', fmtNum) : '';
-    document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood', fmt) : '';
-    document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood', fmtPct) : '';
-    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt) : '';
-    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct) : '';
+    document.getElementById('mCostVar').innerHTML = co ? varianceHTML(co.cost, 'downGood', fmt, overall.cost) : '';
+    document.getElementById('mClicksVar').innerHTML = co ? varianceHTML(co.clicks, 'upGood', fmtNum, overall.clicks) : '';
+    document.getElementById('mImprVar').innerHTML = co ? varianceHTML(co.impressions, 'neutral', fmtNum, overall.impressions) : '';
+    document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood', fmtNum, overall.conversions) : '';
+    document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood', fmt, overall.avgCpc) : '';
+    document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood', fmtPct, overall.ctr) : '';
+    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion) : '';
+    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct, overall.convRate) : '';
   }
   renderTable();
 }
@@ -356,14 +361,14 @@ function renderTable() {
     tr.innerHTML = `
       <td class="loc-name">${r.location}</td>
       <td>${fmt(r.allocatedBudget || 0)}</td>
-      <td><span class="cell-main">${fmt(r.cost)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.cost, 'downGood', fmt)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtNum(r.impressions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.impressions, 'neutral', fmtNum)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtNum(r.clicks)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.clicks, 'upGood', fmtNum)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood', fmt)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood', fmtPct)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtNum(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood', fmtNum)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood', fmt)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood', fmtPct)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.cost)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.cost, 'downGood', fmt, r.cost)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.impressions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.impressions, 'neutral', fmtNum, r.impressions)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.clicks)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.clicks, 'upGood', fmtNum, r.clicks)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood', fmt, r.avgCpc)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood', fmtPct, r.ctr)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood', fmtNum, r.conversions)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood', fmt, r.costPerConversion)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood', fmtPct, r.convRate)}</span>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
