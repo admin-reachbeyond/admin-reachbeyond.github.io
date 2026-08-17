@@ -117,6 +117,22 @@ tfoot td { font-weight: 600; border-top: 2px solid var(--border); background: va
     <p class="hint">This dashboard is connected to the AO4 Monthly Master Aggregator, which combines Google Ads (both accounts) and Microsoft Ads into one monthly view.</p>
   </div>
 
+  <!-- Month comparison picker (hidden until we know which months are available) -->
+  <div class="card" id="monthCompareCard" style="display:none;">
+    <div class="card-title">📅 Compare months</div>
+    <div class="grid2">
+      <div>
+        <div class="field-label">Show</div>
+        <select id="monthASelect" onchange="onMonthChange()"></select>
+      </div>
+      <div>
+        <div class="field-label">Compared to</div>
+        <select id="monthBSelect" onchange="onMonthChange()"></select>
+      </div>
+    </div>
+    <p class="hint">Picks any two months you have data for. New months appear here automatically once logged.</p>
+  </div>
+
   <div class="notice" id="historyNotice">
     📊 Month-over-month comparison isn't available yet — this dashboard needs at least one full historical snapshot logged before it can show "vs last month" figures. This will start appearing automatically once monthly snapshots begin logging.
   </div>
@@ -178,6 +194,11 @@ const URL_KEY = 'monthly_results_url_v1';
 let rows = [], overall = null, lastRaw = '';
 let comparison = null, currentMonthKey = null, previousMonthKey = null;
 let unmatchedCost = 0, unmatchedCampaigns = [];
+let availableMonths = [];
+// Set once the user picks specific months from the dropdowns. While
+// null, fetchData() lets the backend use its own default (current
+// month vs previous month), same as before this feature existed.
+let explicitMonths = null;
 
 function monthLabel(key) {
   if (!key) return '';
@@ -244,13 +265,41 @@ function toggleRaw() {
   box.textContent = lastRaw || 'No response yet.';
 }
 
+// Fills the "Show" / "Compared to" dropdowns from whatever months the
+// backend says are available, and selects whichever pair the response
+// actually returned (either the backend's default, or the pair we
+// explicitly requested).
+function populateMonthSelectors() {
+  if (!availableMonths.length) return;
+  const selA = document.getElementById('monthASelect');
+  const selB = document.getElementById('monthBSelect');
+  const sortedDesc = [...availableMonths].sort().reverse();
+  const optionsHTML = sortedDesc.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  selA.innerHTML = optionsHTML;
+  selB.innerHTML = optionsHTML;
+  if (currentMonthKey) selA.value = currentMonthKey;
+  if (previousMonthKey) selB.value = previousMonthKey;
+  document.getElementById('monthCompareCard').style.display = '';
+}
+
+function onMonthChange() {
+  const a = document.getElementById('monthASelect').value;
+  const b = document.getElementById('monthBSelect').value;
+  if (!a || !b) return;
+  explicitMonths = { monthA: a, monthB: b };
+  fetchData();
+}
+
 async function fetchData() {
   const urlBase = document.getElementById('scriptUrl').value.trim();
   if (!urlBase) { setStatus('Paste your Apps Script URL above.', 'err'); return; }
   persist();
   setStatus('Fetching…', 'busy');
   lastRaw = '';
-  const url = urlBase + (urlBase.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+  let url = urlBase + (urlBase.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+  if (explicitMonths) {
+    url += '&monthA=' + encodeURIComponent(explicitMonths.monthA) + '&monthB=' + encodeURIComponent(explicitMonths.monthB);
+  }
   try {
     const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
     const text = await res.text();
@@ -270,12 +319,14 @@ async function fetchData() {
     rows = json.data;
     overall = json.overall || null;
     comparison = json.comparison || null;
-    currentMonthKey = json.currentMonthKey || null;
-    previousMonthKey = json.previousMonthKey || null;
+    currentMonthKey = json.monthA || json.currentMonthKey || null;
+    previousMonthKey = json.monthB || json.previousMonthKey || null;
+    availableMonths = json.availableMonths || [];
     unmatchedCost = json.unmatchedCost || 0;
     unmatchedCampaigns = json.unmatchedCampaigns || [];
     document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
     setStatus('Connected — ' + rows.length + ' locations.', 'ok');
+    populateMonthSelectors();
     calculate();
   } catch(e) {
     lastRaw = e.toString();
