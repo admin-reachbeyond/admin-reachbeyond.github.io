@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>Daily Results — All Locations</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f5f3; --surface: #ffffff; --border: #e4e4e0; --border-light: #efefec;
+  --text: #1a1a18; --muted: #737370; --faint: #a8a8a4;
+  --green: #3B6D11; --green-bg: #EAF3DE;
+  --amber: #854F0B; --amber-bg: #FAEEDA;
+  --red: #A32D2D; --red-bg: #FCEBEB;
+  --teal: #085041; --teal-bg: #E1F5EE;
+  --blue: #378ADD; --radius: 10px; --radius-sm: 6px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+.main { max-width: 1300px; margin: 0 auto; padding: 2rem; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+.card-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+.field-label { font-size: 11px; font-weight: 500; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+.grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px; }
+.range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 12px; }
+.range-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.range-head { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+input, select { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--bg); color: var(--text); font-family: inherit; }
+input:focus, select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(55,138,221,.12); background: #fff; }
+.btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button { height: 36px; padding: 0 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity .15s; font-family: inherit; }
+.btn-primary { background: var(--text); color: #fff; border: none; }
+.btn-primary:hover { opacity: .85; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--bg); color: var(--text); }
+.btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
+.preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin-left: 4px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+.dot.ok { background: var(--green); }
+.dot.err { background: var(--red); }
+.dot.busy { background: #EF9F27; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.hint { font-size: 11px; color: var(--faint); margin-top: 8px; line-height: 1.6; }
+.raw-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 11px; font-family: monospace; color: var(--muted); margin-top: 10px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; display: none; }
+.notice { background: var(--amber-bg); color: var(--amber); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; margin-bottom: 1.25rem; line-height: 1.6; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.25rem; }
+.metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
+.metric-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.metric-value { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -.5px; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+.filter-row { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+.filter-row input { width: 220px; height: 32px; font-size: 12px; }
+.filter-row select { width: 170px; height: 32px; font-size: 12px; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { font-size: 11px; font-weight: 600; color: var(--muted); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; background: var(--bg); }
+td { padding: 10px 10px; border-bottom: 1px solid var(--border-light); color: var(--text); vertical-align: middle; white-space: nowrap; }
+th:first-child, td:first-child { position: sticky; left: 0; z-index: 2; box-shadow: 2px 0 4px -2px rgba(0,0,0,.08); }
+th:first-child { background: var(--bg); z-index: 3; }
+td:first-child { background: var(--surface); }
+tbody tr:hover td:first-child { background: var(--bg); }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg); }
+.loc-name { font-weight: 600; font-size: 13px; }
+.sync-info { font-size: 12px; color: var(--faint); }
+.metric-sub { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.var-up { color: var(--green); }
+.var-down { color: var(--red); }
+.var-flat { color: var(--faint); }
+.var-prev { color: var(--faint); font-weight: 500; }
+.cell-main { display: block; }
+.cell-var { display: block; font-size: 10px; font-weight: 600; margin-top: 2px; }
+.comparison-banner { background: var(--teal-bg); color: var(--teal); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; margin-bottom: 1.25rem; line-height: 1.6; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.chart-head select { width: 170px; height: 32px; font-size: 12px; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+#chart { width: 100%; height: 260px; display: block; }
+#chart text { font-size: 11px; fill: var(--muted); font-family: inherit; }
+.chart-tip { position: fixed; pointer-events: none; background: var(--text); color: #fff; font-size: 11px; padding: 6px 9px; border-radius: 6px; line-height: 1.5; display: none; z-index: 20; white-space: nowrap; }
+details summary { cursor: pointer; font-size: 12px; color: var(--muted); font-weight: 500; margin-top: 12px; }
+details[open] summary { margin-bottom: 10px; }
+@media (max-width: 900px) { .metrics { grid-template-columns: 1fr 1fr; } .main { padding: 1rem; } .range-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div> Daily Results</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="sync-info" id="lastSync"></span>
+    <button class="btn-ghost btn-sm" onclick="fetchData()">↻ Refresh</button>
+    <button class="btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Connection -->
+  <div class="card">
+    <div class="card-title">🔌 Data connection</div>
+    <div class="grid2">
+      <div>
+        <div class="field-label">Daily Results Apps Script URL</div>
+        <input id="scriptUrl" value="https://script.google.com/macros/s/AKfycbyRqhcJKMTPTPNXcmQaRZw6FZ-l8RNaiDLZGE7KBlrdkOPmqn0OD5IBBbyR2sXBK-hUhw/exec" placeholder="Paste the AO4 Daily Results Aggregator /exec URL" />
+      </div>
+      <div>
+        <div class="field-label">Currency</div>
+        <select id="currency" onchange="if (overall) calculate()">
+          <option value="A$">AUD (A$)</option>
+          <option value="$">USD ($)</option>
+          <option value="£">GBP (£)</option>
+          <option value="€">EUR (€)</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="fetchData()">↻ Fetch data</button>
+      <button class="btn-ghost" onclick="toggleRaw()">Show raw response</button>
+      <div class="status"><span class="dot" id="sdot"></span><span id="smsg">Not connected</span></div>
+    </div>
+    <div class="raw-box" id="rawBox"></div>
+    <p class="hint">This dashboard is connected to the AO4 Daily Results Aggregator, which combines daily Google Ads (both accounts) and Microsoft Ads results so any two date ranges can be compared.</p>
+  </div>
+
+  <!-- Date range picker -->
+  <div class="card" id="rangeCard" style="display:none;">
+    <div class="card-title">📅 Compare date ranges</div>
+    <div class="preset-row">
+      <button class="btn-ghost btn-sm" onclick="applyPreset('mtd')">Month to date vs same days last month</button>
+      <button class="btn-ghost btn-sm" onclick="applyPreset('last7')">Last 7 days vs previous 7</button>
+      <button class="btn-ghost btn-sm" onclick="applyPreset('yesterday')">Latest day vs same day last week</button>
+      <button class="btn-ghost btn-sm" onclick="applyPreset('lastMonth')">Last full month vs month before</button>
+    </div>
+    <div class="range-grid">
+      <div>
+        <div class="range-head"><span class="swatch" style="background:var(--blue)"></span> Show</div>
+        <div class="range-pair">
+          <div><div class="field-label">From</div><input type="date" id="startA" /></div>
+          <div><div class="field-label">To</div><input type="date" id="endA" /></div>
+        </div>
+      </div>
+      <div>
+        <div class="range-head"><span class="swatch" style="background:var(--faint)"></span> Compared to</div>
+        <div class="range-pair">
+          <div><div class="field-label">From</div><input type="date" id="startB" /></div>
+          <div><div class="field-label">To</div><input type="date" id="endB" /></div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="applyCustomRanges()">Apply</button>
+      <span class="hint" id="availableHint" style="margin-top:0"></span>
+    </div>
+  </div>
+
+  <div class="notice" id="historyNotice">📊 Connect to load daily results.</div>
+
+  <div class="notice" id="unmatchedNotice" style="display:none; background: var(--red-bg); color: var(--red);"></div>
+
+  <!-- Summary metrics -->
+  <div class="metrics" id="metricsGrid">
+    <div class="metric"><div class="metric-label">Total cost</div><div class="metric-value" id="mCost">—</div><div class="metric-sub" id="mCostVar"></div></div>
+    <div class="metric"><div class="metric-label">Total clicks</div><div class="metric-value" id="mClicks">—</div><div class="metric-sub" id="mClicksVar"></div></div>
+    <div class="metric"><div class="metric-label">Total impressions</div><div class="metric-value" id="mImpr">—</div><div class="metric-sub" id="mImprVar"></div></div>
+    <div class="metric"><div class="metric-label">Total conversions</div><div class="metric-value" id="mConv">—</div><div class="metric-sub" id="mConvVar"></div></div>
+    <div class="metric"><div class="metric-label">Avg. CPC</div><div class="metric-value" id="mCpc">—</div><div class="metric-sub" id="mCpcVar"></div></div>
+    <div class="metric"><div class="metric-label">CTR</div><div class="metric-value" id="mCtr">—</div><div class="metric-sub" id="mCtrVar"></div></div>
+    <div class="metric"><div class="metric-label">Cost / conversion</div><div class="metric-value" id="mCostConv">—</div><div class="metric-sub" id="mCostConvVar"></div></div>
+    <div class="metric"><div class="metric-label">Conversion rate</div><div class="metric-value" id="mConvRate">—</div><div class="metric-sub" id="mConvRateVar"></div></div>
+  </div>
+
+  <!-- Daily trend -->
+  <div class="card">
+    <div class="chart-head">
+      <div class="section-label" style="margin-bottom:0">Day by day</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--blue)"></span><span id="legendA">Show</span></span>
+          <span><span class="swatch" style="background:var(--faint)"></span><span id="legendB">Compared to</span></span>
+        </div>
+        <select id="chartMetric" onchange="renderChart(); renderDailyTable()">
+          <option value="cost">Cost</option>
+          <option value="conversions">Conversions</option>
+          <option value="clicks">Clicks</option>
+          <option value="costPerConversion">Cost / conversion</option>
+          <option value="impressions">Impressions</option>
+        </select>
+      </div>
+    </div>
+    <svg id="chart" viewBox="0 0 1000 260" preserveAspectRatio="none"></svg>
+    <details>
+      <summary>Show daily table</summary>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Date</th>
+              <th>Cost</th>
+              <th>Clicks</th>
+              <th>Conversions</th>
+              <th>Cost / conv.</th>
+              <th>Compared date</th>
+              <th id="dailyCmpHead">Compared value</th>
+            </tr>
+          </thead>
+          <tbody id="dailyBody"></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="section-label" style="margin-bottom:12px" id="tableLabel">Results by location</div>
+    <div class="filter-row">
+      <input id="filterSearch" placeholder="🔍 Search location…" oninput="renderTable()" />
+      <select id="filterSort" onchange="renderTable()">
+        <option value="location">A–Z</option>
+        <option value="cost-desc">Highest cost</option>
+        <option value="conv-desc">Most conversions</option>
+        <option value="convrate-desc">Highest conversion rate</option>
+        <option value="cpc-desc">Highest CPC</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:14%">Location</th>
+            <th style="width:9%" title="Monthly budget from the Budgets tab, pro-rated to the days in the selected range">Budget (pro-rata)</th>
+            <th style="width:9%">Cost</th>
+            <th style="width:9%">Impressions</th>
+            <th style="width:7%">Clicks</th>
+            <th style="width:8%">Avg. CPC</th>
+            <th style="width:7%">CTR</th>
+            <th style="width:9%">Conversions</th>
+            <th style="width:10%">Cost / conv.</th>
+            <th style="width:9%">Conv. rate</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="10" style="text-align:center;padding:3rem 0;color:var(--faint)">Connect to your Apps Script to load daily data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="chart-tip" id="chartTip"></div>
+
+<script>
+const URL_KEY = 'daily_results_url_v1';
+let rows = [], overall = null, lastRaw = '';
+let comparison = null, rangeA = null, rangeB = null, availableRange = null;
+let dailyA = [], dailyB = [];
+let unmatchedCost = 0, unmatchedCampaigns = [];
+// Null until the user picks ranges; then sent to the backend on every fetch.
+let explicitRanges = null;
+
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ---- date helpers (all yyyy-mm-dd strings, UTC maths) ----
+function parseKey(k) { const [y, m, d] = k.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); }
+function toKey(dt) { return dt.toISOString().slice(0, 10); }
+function addDays(k, n) { const d = parseKey(k); d.setUTCDate(d.getUTCDate() + n); return toKey(d); }
+function daysBetween(a, b) { return Math.round((parseKey(b) - parseKey(a)) / 86400000); }
+function daysInMonth(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+function dayLabel(k) { const d = parseKey(k); return d.getUTCDate() + ' ' + MONTHS_SHORT[d.getUTCMonth()]; }
+function dowLabel(k) { return DOW[parseKey(k).getUTCDay()]; }
+function rangeLabel(r) {
+  if (!r) return '';
+  const a = parseKey(r.start), b = parseKey(r.end);
+  const sameYear = a.getUTCFullYear() === b.getUTCFullYear();
+  const sameMonth = sameYear && a.getUTCMonth() === b.getUTCMonth();
+  if (r.start === r.end) return a.getUTCDate() + ' ' + MONTHS_SHORT[a.getUTCMonth()] + ' ' + a.getUTCFullYear();
+  if (sameMonth) return a.getUTCDate() + '–' + b.getUTCDate() + ' ' + MONTHS_SHORT[b.getUTCMonth()] + ' ' + b.getUTCFullYear();
+  if (sameYear) return dayLabel(r.start) + ' – ' + dayLabel(r.end) + ' ' + b.getUTCFullYear();
+  return dayLabel(r.start) + ' ' + a.getUTCFullYear() + ' – ' + dayLabel(r.end) + ' ' + b.getUTCFullYear();
+}
+
+// direction: 'downGood' (cost, cost/conv), 'upGood' (clicks, conversions, conv rate), 'neutral' (impressions)
+function varianceHTML(v, direction, formatter, current) {
+  if (!v || v.pct === null || v.pct === undefined) return '';
+  const displaysEqual = formatter && current !== undefined && current !== null &&
+    v.previous !== null && v.previous !== undefined && formatter(current) === formatter(v.previous);
+  const pct = displaysEqual ? 0 : v.pct;
+  const isUp = pct > 0;
+  const isFlat = displaysEqual || Math.abs(pct) < 0.05;
+  let cls = 'var-flat';
+  if (direction !== 'neutral' && !isFlat) {
+    const good = direction === 'downGood' ? pct < 0 : pct > 0;
+    cls = good ? 'var-up' : 'var-down';
+  }
+  const arrow = isFlat ? '·' : (isUp ? '▲' : '▼');
+  const prevText = (formatter && v.previous !== null && v.previous !== undefined)
+    ? ` <span class="var-prev">(was ${formatter(v.previous)})</span>`
+    : '';
+  return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>${prevText}`;
+}
+
+function sym() { return document.getElementById('currency').value; }
+function fmt(n) { return sym() + Math.round(n).toLocaleString(); }
+function fmtNum(n) { return Math.round(n).toLocaleString(); }
+function fmtConv(n) { return (Math.round(n * 10) / 10).toLocaleString(); }
+function fmtPct(n) { return n.toFixed(2) + '%'; }
+
+function setStatus(msg, state) {
+  document.getElementById('smsg').textContent = msg;
+  document.getElementById('sdot').className = 'dot ' + (state || '');
+}
+
+function loadSaved() {
+  // The hardcoded default above is the source of truth (updated on every
+  // redeploy). A saved URL is only used if the field has no default at all.
+  const field = document.getElementById('scriptUrl');
+  if (field.value.trim() && field.value.trim() !== 'PASTE_EXEC_URL_HERE') return;
+  field.value = '';
+  try { const u = localStorage.getItem(URL_KEY); if (u) field.value = u; } catch {}
+}
+
+function persist() {
+  try { localStorage.setItem(URL_KEY, document.getElementById('scriptUrl').value); } catch {}
+}
+
+function toggleRaw() {
+  const box = document.getElementById('rawBox');
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  box.textContent = lastRaw || 'No response yet.';
+}
+
+// ---- range picker ----
+function populateRangeInputs() {
+  if (!rangeA || !rangeB) return;
+  ['startA', 'endA', 'startB', 'endB'].forEach(id => {
+    const el = document.getElementById(id);
+    if (availableRange) { el.min = availableRange.min; el.max = availableRange.max; }
+  });
+  document.getElementById('startA').value = rangeA.start;
+  document.getElementById('endA').value = rangeA.end;
+  document.getElementById('startB').value = rangeB.start;
+  document.getElementById('endB').value = rangeB.end;
+  if (availableRange) {
+    document.getElementById('availableHint').textContent =
+      'Data available from ' + rangeLabel({ start: availableRange.min, end: availableRange.min }) +
+      ' to ' + rangeLabel({ start: availableRange.max, end: availableRange.max }) + '.';
+  }
+  document.getElementById('rangeCard').style.display = '';
+}
+
+function applyCustomRanges() {
+  const r = {
+    startA: document.getElementById('startA').value,
+    endA: document.getElementById('endA').value,
+    startB: document.getElementById('startB').value,
+    endB: document.getElementById('endB').value
+  };
+  if (!r.startA || !r.endA || !r.startB || !r.endB) { setStatus('Pick all four dates first.', 'err'); return; }
+  explicitRanges = r;
+  fetchData();
+}
+
+function applyPreset(name) {
+  if (!availableRange) return;
+  const max = availableRange.max;
+  const d = parseKey(max);
+  const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1, day = d.getUTCDate();
+  let r;
+  if (name === 'mtd') {
+    const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+    const pd = Math.min(day, daysInMonth(py, pm));
+    r = { startA: toKey(new Date(Date.UTC(y, m - 1, 1))), endA: max,
+          startB: toKey(new Date(Date.UTC(py, pm - 1, 1))), endB: toKey(new Date(Date.UTC(py, pm - 1, pd))) };
+  } else if (name === 'last7') {
+    r = { startA: addDays(max, -6), endA: max, startB: addDays(max, -13), endB: addDays(max, -7) };
+  } else if (name === 'yesterday') {
+    r = { startA: max, endA: max, startB: addDays(max, -7), endB: addDays(max, -7) };
+  } else if (name === 'lastMonth') {
+    const ly = m === 1 ? y - 1 : y, lm = m === 1 ? 12 : m - 1;
+    const py = lm === 1 ? ly - 1 : ly, pm = lm === 1 ? 12 : lm - 1;
+    r = { startA: toKey(new Date(Date.UTC(ly, lm - 1, 1))), endA: toKey(new Date(Date.UTC(ly, lm - 1, daysInMonth(ly, lm)))),
+          startB: toKey(new Date(Date.UTC(py, pm - 1, 1))), endB: toKey(new Date(Date.UTC(py, pm - 1, daysInMonth(py, pm)))) };
+  }
+  explicitRanges = r;
+  fetchData();
+}
+
+// ---- fetch ----
+async function fetchData() {
+  const urlBase = document.getElementById('scriptUrl').value.trim();
+  if (!urlBase || urlBase === 'PASTE_EXEC_URL_HERE') { setStatus('Paste your Apps Script URL above.', 'err'); return; }
+  persist();
+  setStatus('Fetching…', 'busy');
+  lastRaw = '';
+  let url = urlBase + (urlBase.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+  if (explicitRanges) {
+    Object.keys(explicitRanges).forEach(k => { url += '&' + k + '=' + encodeURIComponent(explicitRanges[k]); });
+  }
+  try {
+    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+    const text = await res.text();
+    lastRaw = text;
+    if (document.getElementById('rawBox').style.display === 'block')
+      document.getElementById('rawBox').textContent = text;
+    if (!res.ok) { setStatus('HTTP ' + res.status + ' error.', 'err'); return; }
+    let json;
+    try { json = JSON.parse(text); } catch (e) {
+      setStatus('Invalid JSON — click "Show raw response".', 'err');
+      document.getElementById('rawBox').style.display = 'block';
+      document.getElementById('rawBox').textContent = text.slice(0, 800);
+      return;
+    }
+    if (json.error) { setStatus('Script error: ' + json.error, 'err'); return; }
+    if (!json.data || !Array.isArray(json.data)) { setStatus('No data returned.', 'err'); return; }
+    rows = json.data;
+    overall = json.overall || null;
+    comparison = json.comparison || null;
+    rangeA = json.rangeA || null;
+    rangeB = json.rangeB || null;
+    availableRange = json.availableRange || null;
+    dailyA = json.dailyA || [];
+    dailyB = json.dailyB || [];
+    unmatchedCost = json.unmatchedCost || 0;
+    unmatchedCampaigns = json.unmatchedCampaigns || [];
+    document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
+    setStatus('Connected — ' + rows.length + ' locations.', 'ok');
+    populateRangeInputs();
+    calculate();
+  } catch (e) {
+    lastRaw = e.toString();
+    setStatus('Fetch failed: ' + e.message, 'err');
+  }
+}
+
+// ---- render ----
+function calculate() {
+  const unmatchedBox = document.getElementById('unmatchedNotice');
+  if (unmatchedCost > 5) {
+    unmatchedBox.style.display = 'block';
+    const topList = unmatchedCampaigns.slice(0, 5)
+      .map(c => `${c.source}: "${c.name}" (${fmt(c.cost)})`)
+      .join('; ');
+    unmatchedBox.innerHTML = `⚠️ ${fmt(unmatchedCost)} in campaign spend didn't match any known location in this range — it's excluded from the totals. ` +
+      `This usually means a new campaign type or naming pattern needs the location-parsing rules updated. Top items: ${topList}${unmatchedCampaigns.length > 5 ? '…' : ''}`;
+  } else {
+    unmatchedBox.style.display = 'none';
+  }
+
+  const notice = document.getElementById('historyNotice');
+  const labelA = rangeLabel(rangeA), labelB = rangeLabel(rangeB);
+  document.getElementById('legendA').textContent = labelA;
+  document.getElementById('legendB').textContent = labelB;
+  document.getElementById('tableLabel').textContent = 'Results by location — ' + labelA;
+
+  if (comparison && comparison.hasPreviousData && comparison.overall) {
+    notice.className = 'comparison-banner';
+    const co = comparison.overall;
+    notice.innerHTML = `📊 Showing <strong>${labelA}</strong> vs <strong>${labelB}</strong> — ` +
+      `Cost ${varianceHTML(co.cost, 'downGood', fmt, overall.cost)}, Conversions ${varianceHTML(co.conversions, 'upGood', fmtConv, overall.conversions)}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion)}`;
+  } else {
+    notice.className = 'notice';
+    notice.innerHTML = `📊 Showing <strong>${labelA}</strong>. There's no data for the comparison range (${labelB}), so no change figures are shown.`;
+  }
+
+  if (overall) {
+    document.getElementById('mCost').textContent = fmt(overall.cost);
+    document.getElementById('mClicks').textContent = fmtNum(overall.clicks);
+    document.getElementById('mImpr').textContent = fmtNum(overall.impressions);
+    document.getElementById('mConv').textContent = fmtConv(overall.conversions);
+    document.getElementById('mCpc').textContent = fmt(overall.avgCpc);
+    document.getElementById('mCtr').textContent = fmtPct(overall.ctr);
+    document.getElementById('mCostConv').textContent = fmt(overall.costPerConversion);
+    document.getElementById('mConvRate').textContent = fmtPct(overall.convRate);
+
+    const co = comparison && comparison.hasPreviousData ? comparison.overall : null;
+    document.getElementById('mCostVar').innerHTML = co ? varianceHTML(co.cost, 'downGood', fmt, overall.cost) : '';
+    document.getElementById('mClicksVar').innerHTML = co ? varianceHTML(co.clicks, 'upGood', fmtNum, overall.clicks) : '';
+    document.getElementById('mImprVar').innerHTML = co ? varianceHTML(co.impressions, 'neutral', fmtNum, overall.impressions) : '';
+    document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood', fmtConv, overall.conversions) : '';
+    document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood', fmt, overall.avgCpc) : '';
+    document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood', fmtPct, overall.ctr) : '';
+    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion) : '';
+    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct, overall.convRate) : '';
+  }
+  renderChart();
+  renderDailyTable();
+  renderTable();
+}
+
+function metricFormatter(key) {
+  if (key === 'cost' || key === 'costPerConversion') return fmt;
+  if (key === 'conversions') return fmtConv;
+  return fmtNum;
+}
+
+function renderChart() {
+  const svg = document.getElementById('chart');
+  const key = document.getElementById('chartMetric').value;
+  const f = metricFormatter(key);
+  const n = Math.max(dailyA.length, dailyB.length);
+  if (!n) { svg.innerHTML = ''; return; }
+
+  const W = 1000, H = 260, padL = 64, padR = 16, padT = 14, padB = 30;
+  const vals = dailyA.concat(dailyB).map(d => d[key] || 0);
+  let maxV = Math.max(1, ...vals);
+  const step = Math.pow(10, Math.floor(Math.log10(maxV)));
+  maxV = Math.ceil(maxV / step) * step;
+  const x = i => padL + (n === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (n - 1));
+  const y = v => padT + (H - padT - padB) * (1 - v / maxV);
+
+  let out = '';
+  for (let g = 0; g <= 4; g++) {
+    const v = maxV * g / 4, yy = y(v);
+    out += `<line x1="${padL}" x2="${W - padR}" y1="${yy}" y2="${yy}" stroke="#efefec" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    out += `<text x="${padL - 8}" y="${yy + 4}" text-anchor="end">${f(v)}</text>`;
+  }
+  const every = Math.max(1, Math.ceil(n / 12));
+  for (let i = 0; i < n; i += every) {
+    const lbl = dailyA[i] ? dayLabel(dailyA[i].date) : '';
+    out += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${lbl}</text>`;
+  }
+  const path = arr => arr.map((d, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(d[key] || 0).toFixed(1)).join(' ');
+  if (dailyB.length) out += `<path d="${path(dailyB)}" fill="none" stroke="#a8a8a4" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`;
+  if (dailyA.length) out += `<path d="${path(dailyA)}" fill="none" stroke="#378ADD" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`;
+  // hover targets
+  const bandW = (W - padL - padR) / Math.max(1, n - 1);
+  for (let i = 0; i < n; i++) {
+    out += `<rect x="${x(i) - bandW / 2}" y="${padT}" width="${bandW}" height="${H - padT - padB}" fill="transparent" data-i="${i}"/>`;
+  }
+  svg.innerHTML = out;
+
+  const tip = document.getElementById('chartTip');
+  svg.querySelectorAll('rect[data-i]').forEach(r => {
+    r.addEventListener('mousemove', ev => {
+      const i = +r.dataset.i, a = dailyA[i], b = dailyB[i];
+      let html = '';
+      if (a) html += `<b>${dowLabel(a.date)} ${dayLabel(a.date)}</b>: ${f(a[key] || 0)}`;
+      if (b) html += `<br><span style="opacity:.75">${dowLabel(b.date)} ${dayLabel(b.date)}: ${f(b[key] || 0)}</span>`;
+      tip.innerHTML = html;
+      tip.style.display = 'block';
+      tip.style.left = (ev.clientX + 12) + 'px';
+      tip.style.top = (ev.clientY - 10) + 'px';
+    });
+    r.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  });
+}
+
+function renderDailyTable() {
+  const key = document.getElementById('chartMetric').value;
+  const f = metricFormatter(key);
+  const label = document.getElementById('chartMetric').selectedOptions[0].textContent;
+  document.getElementById('dailyCmpHead').textContent = 'Compared ' + label.toLowerCase();
+  const body = document.getElementById('dailyBody');
+  body.innerHTML = dailyA.map((a, i) => {
+    const b = dailyB[i];
+    return `<tr>
+      <td>${dowLabel(a.date)}</td>
+      <td>${dayLabel(a.date)}</td>
+      <td>${fmt(a.cost)}</td>
+      <td>${fmtNum(a.clicks)}</td>
+      <td>${fmtConv(a.conversions)}</td>
+      <td>${a.conversions > 0 ? fmt(a.costPerConversion) : '—'}</td>
+      <td>${b ? dowLabel(b.date) + ' ' + dayLabel(b.date) : '—'}</td>
+      <td>${b ? f(b[key] || 0) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTable() {
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+  const sort = document.getElementById('filterSort').value;
+
+  let data = rows.filter(r => !search || r.location.toLowerCase().includes(search));
+
+  data.sort((a, b) => {
+    if (sort === 'cost-desc')      return b.cost - a.cost;
+    if (sort === 'conv-desc')      return b.conversions - a.conversions;
+    if (sort === 'convrate-desc')  return b.convRate - a.convRate;
+    if (sort === 'cpc-desc')       return b.avgCpc - a.avgCpc;
+    return a.location.localeCompare(b.location);
+  });
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem 0;color:var(--faint)">No locations match your filters.</td></tr>';
+    return;
+  }
+
+  data.forEach(r => {
+    const cmp = comparison && comparison.hasPreviousData
+      ? comparison.byLocation.find(c => c.location === r.location)
+      : null;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="loc-name">${r.location}</td>
+      <td>${fmt(r.allocatedBudget || 0)}</td>
+      <td><span class="cell-main">${fmt(r.cost)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.cost, 'downGood', fmt, r.cost)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.impressions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.impressions, 'neutral', fmtNum, r.impressions)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtNum(r.clicks)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.clicks, 'upGood', fmtNum, r.clicks)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood', fmt, r.avgCpc)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood', fmtPct, r.ctr)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtConv(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood', fmtConv, r.conversions)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood', fmt, r.costPerConversion)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood', fmtPct, r.convRate)}</span>` : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportCSV() {
+  const rowsOut = [['Range', 'Location', 'Budget (pro-rata)', 'Cost', 'Impressions', 'Clicks', 'Avg CPC', 'CTR', 'Conversions', 'Cost/Conversion', 'Conv Rate']];
+  const label = rangeLabel(rangeA);
+  rows.forEach(r => {
+    rowsOut.push([label, r.location, r.allocatedBudget || 0, r.cost, r.impressions, r.clicks, r.avgCpc, r.ctr + '%', r.conversions, r.costPerConversion, r.convRate + '%']);
+  });
+  if (overall) {
+    rowsOut.push([label, 'Overall', overall.allocatedBudget || 0, overall.cost, overall.impressions, overall.clicks, overall.avgCpc, overall.ctr + '%', overall.conversions, overall.costPerConversion, overall.convRate + '%']);
+  }
+  const csv = rowsOut.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'daily-results-' + (rangeA ? rangeA.start + '_to_' + rangeA.end : new Date().toISOString().slice(0, 10)) + '.csv';
+  a.click();
+}
+
+loadSaved();
+if (document.getElementById('scriptUrl').value) fetchData();
+</script>
+</body>
+</html>
