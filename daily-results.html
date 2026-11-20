@@ -290,8 +290,22 @@ function rangeLabel(r) {
 }
 
 // direction: 'downGood' (cost, cost/conv), 'upGood' (clicks, conversions, conv rate), 'neutral' (impressions)
-function varianceHTML(v, direction, formatter, current) {
-  if (!v || v.pct === null || v.pct === undefined) return '';
+// ratio: true for cost/conv. and conv. rate, where a previous 0 means
+// "nothing to calculate from" rather than a real zero.
+function varianceHTML(v, direction, formatter, current, ratio) {
+  if (!v) return '';
+  // Previous value was 0, so a % change can't be calculated.
+  if ((v.pct === null || v.pct === undefined) && v.previous === 0) {
+    if (!current) return '';
+    const prevText = ratio ? '—' : (formatter ? formatter(0) : '0');
+    const cls = (direction === 'upGood' && !ratio) ? 'var-up' : 'var-flat';
+    return `<span class="${cls}">▲ new</span> <span class="var-prev">(was ${prevText})</span>`;
+  }
+  if (v.pct === null || v.pct === undefined) return '';
+  // Ratio is 0 now only because there were no conversions this period.
+  if (ratio && !current && v.previous) {
+    return `<span class="var-down">no conv.</span> <span class="var-prev">(was ${formatter ? formatter(v.previous) : v.previous})</span>`;
+  }
   const displaysEqual = formatter && current !== undefined && current !== null &&
     v.previous !== null && v.previous !== undefined && formatter(current) === formatter(v.previous);
   const pct = displaysEqual ? 0 : v.pct;
@@ -466,7 +480,7 @@ function calculate() {
     notice.className = 'comparison-banner';
     const co = comparison.overall;
     notice.innerHTML = `📊 Showing <strong>${labelA}</strong> vs <strong>${labelB}</strong> — ` +
-      `Cost ${varianceHTML(co.cost, 'downGood', fmt, overall.cost)}, Conversions ${varianceHTML(co.conversions, 'upGood', fmtConv, overall.conversions)}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion)}`;
+      `Cost ${varianceHTML(co.cost, 'downGood', fmt, overall.cost)}, Conversions ${varianceHTML(co.conversions, 'upGood', fmtConv, overall.conversions)}, Cost/conv. ${varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion, true)}`;
   } else {
     notice.className = 'notice';
     notice.innerHTML = `📊 Showing <strong>${labelA}</strong>. There's no data for the comparison range (${labelB}), so no change figures are shown.`;
@@ -479,7 +493,7 @@ function calculate() {
     document.getElementById('mConv').textContent = fmtConv(overall.conversions);
     document.getElementById('mCpc').textContent = fmt(overall.avgCpc);
     document.getElementById('mCtr').textContent = fmtPct(overall.ctr);
-    document.getElementById('mCostConv').textContent = fmt(overall.costPerConversion);
+    document.getElementById('mCostConv').textContent = overall.conversions > 0 ? fmt(overall.costPerConversion) : '—';
     document.getElementById('mConvRate').textContent = fmtPct(overall.convRate);
 
     const co = comparison && comparison.hasPreviousData ? comparison.overall : null;
@@ -489,8 +503,8 @@ function calculate() {
     document.getElementById('mConvVar').innerHTML = co ? varianceHTML(co.conversions, 'upGood', fmtConv, overall.conversions) : '';
     document.getElementById('mCpcVar').innerHTML = co ? varianceHTML(co.avgCpc, 'downGood', fmt, overall.avgCpc) : '';
     document.getElementById('mCtrVar').innerHTML = co ? varianceHTML(co.ctr, 'upGood', fmtPct, overall.ctr) : '';
-    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion) : '';
-    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct, overall.convRate) : '';
+    document.getElementById('mCostConvVar').innerHTML = co ? varianceHTML(co.costPerConversion, 'downGood', fmt, overall.costPerConversion, true) : '';
+    document.getElementById('mConvRateVar').innerHTML = co ? varianceHTML(co.convRate, 'upGood', fmtPct, overall.convRate, true) : '';
   }
   renderChart();
   renderDailyTable();
@@ -613,8 +627,8 @@ function renderTable() {
       <td><span class="cell-main">${fmt(r.avgCpc)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.avgCpc, 'downGood', fmt, r.avgCpc)}</span>` : ''}</td>
       <td><span class="cell-main">${fmtPct(r.ctr)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.ctr, 'upGood', fmtPct, r.ctr)}</span>` : ''}</td>
       <td><span class="cell-main">${fmtConv(r.conversions)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.conversions, 'upGood', fmtConv, r.conversions)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmt(r.costPerConversion)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood', fmt, r.costPerConversion)}</span>` : ''}</td>
-      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood', fmtPct, r.convRate)}</span>` : ''}</td>
+      <td><span class="cell-main">${r.conversions > 0 ? fmt(r.costPerConversion) : '—'}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.costPerConversion, 'downGood', fmt, r.costPerConversion, true)}</span>` : ''}</td>
+      <td><span class="cell-main">${fmtPct(r.convRate)}</span>${cmp ? `<span class="cell-var">${varianceHTML(cmp.convRate, 'upGood', fmtPct, r.convRate, true)}</span>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
