@@ -87,8 +87,39 @@ tbody tr:hover td { background: var(--bg); }
 .chart-tip { position: fixed; pointer-events: none; background: var(--text); color: #fff; font-size: 11px; padding: 6px 9px; border-radius: 6px; line-height: 1.5; display: none; z-index: 20; white-space: nowrap; }
 details summary { cursor: pointer; font-size: 12px; color: var(--muted); font-weight: 500; margin-top: 12px; }
 details[open] summary { margin-bottom: 10px; }
-@media (max-width: 900px) { .metrics { grid-template-columns: 1fr 1fr; } .main { padding: 1rem; } .range-grid { grid-template-columns: 1fr; } }
+/* ---- tabs ---- */
+.tabs { display: flex; gap: 4px; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.tab { height: 38px; padding: 0 16px; background: transparent; border: none; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: -1px; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+/* ---- budget pacing ---- */
+.metrics5 { grid-template-columns: repeat(5, 1fr); }
+.metric-value.good { color: var(--green); }
+.metric-value.bad { color: var(--red); }
+.pacing-tbl td { white-space: normal; }
+.platform-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.ptag { font-size: 10px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.b-ok    { background: var(--green-bg); color: var(--green); }
+.b-warn  { background: var(--amber-bg); color: var(--amber); }
+.b-over  { background: var(--red-bg);   color: var(--red);   }
+.b-ahead { background: var(--red-bg);   color: var(--red);   }
+.b-na    { background: var(--bg);       color: var(--faint); }
+.bar-wrap { height: 4px; background: var(--border); border-radius: 2px; margin-top: 5px; overflow: hidden; min-width: 80px; }
+.bar-fill { height: 100%; border-radius: 2px; }
+.editable { border: 1px solid transparent; border-radius: 4px; padding: 3px 6px; width: 100%; height: 28px; background: transparent; font-size: 13px; color: var(--text); }
+.editable:focus { border-color: var(--blue); background: #fff; outline: none; box-shadow: 0 0 0 2px rgba(55,138,221,.12); }
+.banner { border-radius: var(--radius); padding: 12px 16px; margin-bottom: 1.25rem; display: none; font-size: 12px; line-height: 1.6; }
+.banner b { display: block; font-size: 13px; margin-bottom: 4px; }
+.banner.amber { background: var(--amber-bg); border: 1px solid #e8c98a; color: var(--amber); }
+.banner.red { background: var(--red-bg); border: 1px solid #e2a3a3; color: var(--red); }
+.banner.error { background: #fff0f0; border: 1px solid #d98c8c; color: #8a1f1f; }
+tr.synthetic-row td { background: var(--teal-bg) !important; }
+.legend-row { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend-row span { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 900px) { .metrics, .metrics5 { grid-template-columns: 1fr 1fr; } .main { padding: 1rem; } .range-grid { grid-template-columns: 1fr; } }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
 <body>
 
@@ -96,8 +127,8 @@ details[open] summary { margin-bottom: 10px; }
   <div class="logo"><div class="logo-dot"></div> Daily Results</div>
   <div style="display:flex;align-items:center;gap:12px">
     <span class="sync-info" id="lastSync"></span>
-    <button class="btn-ghost btn-sm" onclick="fetchData()">↻ Refresh</button>
-    <button class="btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn-ghost btn-sm" onclick="fetchData(); fetchPacing()">↻ Refresh</button>
+    <button class="btn-ghost btn-sm" onclick="activeTab === 'pacing' ? exportPacingCSV() : exportCSV()">⬇ Export CSV</button>
   </div>
 </header>
 
@@ -113,7 +144,7 @@ details[open] summary { margin-bottom: 10px; }
       </div>
       <div>
         <div class="field-label">Currency</div>
-        <select id="currency" onchange="if (overall) calculate()">
+        <select id="currency" onchange="if (overall) calculate(); if (pLocations.length) calculatePacing()">
           <option value="A$">AUD (A$)</option>
           <option value="$">USD ($)</option>
           <option value="£">GBP (£)</option>
@@ -121,14 +152,99 @@ details[open] summary { margin-bottom: 10px; }
         </select>
       </div>
     </div>
+    <div class="grid2">
+      <div>
+        <div class="field-label">Budget tracker Apps Script URL (Platform budget &amp; pacing)</div>
+        <input id="pacingUrl" value="https://script.google.com/macros/s/AKfycbwOw-TqDXwrXv8kRieQ79f5Q0U1rbCciljSW46pvSLKvzXiqtCfeSbLJUChC3xVgHutNA/exec" placeholder="Paste the Ad Master Tracker /exec URL" />
+      </div>
+      <div></div>
+    </div>
     <div class="btn-row">
-      <button class="btn-primary" onclick="fetchData()">↻ Fetch data</button>
+      <button class="btn-primary" onclick="fetchData(); fetchPacing()">↻ Fetch data</button>
       <button class="btn-ghost" onclick="toggleRaw()">Show raw response</button>
       <div class="status"><span class="dot" id="sdot"></span><span id="smsg">Not connected</span></div>
+      <div class="status"><span class="dot" id="pdot"></span><span id="pmsg">Budget pacing: not connected</span></div>
     </div>
     <div class="raw-box" id="rawBox"></div>
-    <p class="hint">This dashboard is connected to the AO4 Daily Results Aggregator, which combines daily Google Ads (both accounts) and Microsoft Ads results so any two date ranges can be compared.</p>
+    <p class="hint">Results come from the AO4 Daily Results Aggregator (daily Google Ads, both accounts, plus Microsoft Ads). Budget pacing comes from the Ad Master Tracker, the same feed as the old budget tracker page. Allocated budget edits are saved in this browser and shared with the old budget tracker page.</p>
   </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabBtn-results" onclick="showTab('results')">📈 Results</button>
+    <button class="tab" id="tabBtn-pacing" onclick="showTab('pacing')">💰 Budget pacing — this month</button>
+  </div>
+
+  <div id="tab-pacing" style="display:none;">
+
+    <div class="banner error" id="pErrorBanner"><b>✕ A data source failed to load this time</b><span id="pErrorDetail"></span></div>
+    <div class="banner red" id="pStaleBanner"><b>⚠ A data source hasn't updated today</b><span id="pStaleDetail"></span></div>
+    <div class="banner amber" id="pUnmatchedBanner"><b>⚠ Unmatched campaign spend detected</b><span id="pUnmatchedDetail"></span><div id="pUnmatchedList" style="margin-top:6px;font-size:11px;opacity:.85"></div></div>
+
+    <div class="metrics metrics5">
+      <div class="metric"><div class="metric-label">Platform budget</div><div class="metric-value" id="pmPlatform">—</div></div>
+      <div class="metric"><div class="metric-label">Allocated budget</div><div class="metric-value" id="pmAllocated">—</div></div>
+      <div class="metric"><div class="metric-label">Total spent</div><div class="metric-value" id="pmSpent">—</div></div>
+      <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value" id="pmRem">—</div></div>
+      <div class="metric"><div class="metric-label">Days left</div><div class="metric-value" id="pmDays">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" style="margin-bottom:12px" id="pTableLabel">Location pacing report</div>
+      <div class="filter-row">
+        <input id="pFilterSearch" placeholder="🔍 Search location…" oninput="renderPacingTable()" />
+        <select id="pFilterPacing" onchange="renderPacingTable()">
+          <option value="">All pacing statuses</option>
+          <option value="On track">On track</option>
+          <option value="Ahead">Ahead</option>
+          <option value="Behind">Behind</option>
+          <option value="No budget">No budget set</option>
+        </select>
+        <select id="pFilterSort" onchange="renderPacingTable()">
+          <option value="location">A–Z</option>
+          <option value="spent-desc">Highest spend</option>
+          <option value="pct-desc">% used (high–low)</option>
+          <option value="variance-desc">Most overspent</option>
+          <option value="variance-asc">Most underspent</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="pacing-tbl">
+          <thead>
+            <tr>
+              <th style="width:18%">Location</th>
+              <th style="width:11%">Platform budget</th>
+              <th style="width:8%">Allocated<br>monthly<br>budget</th>
+              <th style="width:8%">Allocated<br>daily<br>budget</th>
+              <th style="width:9%">Spent</th>
+              <th style="width:10%">$ variance</th>
+              <th style="width:8%">% used</th>
+              <th style="width:13%">Progress</th>
+              <th style="width:9%">Pacing</th>
+              <th style="width:9%">Daily needed</th>
+            </tr>
+          </thead>
+          <tbody id="pTbody">
+            <tr><td colspan="10" style="text-align:center;padding:3rem 0;color:var(--faint)">Connect to the budget tracker script to load pacing.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" style="margin-bottom:14px">Top 15 locations — budget vs spent</div>
+      <div style="position:relative;height:260px">
+        <canvas id="pChart" role="img" aria-label="Bar chart of budget vs spent by location"></canvas>
+      </div>
+      <div class="legend-row">
+        <span><span class="swatch" style="background:#378ADD"></span>Allocated budget</span>
+        <span><span class="swatch" style="background:#D85A30"></span>Spent</span>
+        <span><span class="swatch" style="background:#B5D4F4"></span>Expected by now</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="tab-results">
 
   <!-- Date range picker -->
   <div class="card" id="rangeCard" style="display:none;">
@@ -253,6 +369,8 @@ details[open] summary { margin-bottom: 10px; }
       </table>
     </div>
   </div>
+
+  </div><!-- /tab-results -->
 
 </div>
 
@@ -650,8 +768,346 @@ function exportCSV() {
   a.click();
 }
 
+// =====================================================================
+// Tabs
+// =====================================================================
+let activeTab = 'results';
+function showTab(name) {
+  activeTab = name === 'pacing' ? 'pacing' : 'results';
+  document.getElementById('tab-results').style.display = activeTab === 'results' ? '' : 'none';
+  document.getElementById('tab-pacing').style.display = activeTab === 'pacing' ? '' : 'none';
+  document.getElementById('tabBtn-results').classList.toggle('active', activeTab === 'results');
+  document.getElementById('tabBtn-pacing').classList.toggle('active', activeTab === 'pacing');
+  try { history.replaceState(null, '', activeTab === 'pacing' ? '#pacing' : '#results'); } catch {}
+  // Chart.js can't size a hidden canvas, so redraw when the tab becomes visible.
+  if (activeTab === 'pacing' && pEnriched.length) renderPacingChart();
+}
+
+// =====================================================================
+// Budget pacing (current month) — ported from the old Ads Budget Tracker.
+// Same feed (Ad Master Tracker), same maths, so figures should match the
+// old page exactly. Temporary until budgets come from Daily Data.
+// =====================================================================
+
+// Same localStorage key as the old budget tracker page (same site), so any
+// allocated budgets typed into the old page carry over, and vice versa.
+const P_STORAGE_KEY = 'ads_allocated_budgets_v1';
+
+// A location is "On track" when its % used is within this many percentage
+// points of the % expected by today; beyond that it is "Ahead" or "Behind".
+const PACE_TOLERANCE = 1;
+
+// Display-only rows that combine several locations. Appended after totals
+// are calculated, so they never affect the totals or the chart.
+const STATE_SUMMARIES = {
+  'WA State': ['Subiaco', 'Perth']
+};
+
+let pLocations = [], pEnriched = [], pAllocated = {}, pChartInst = null, pLastRaw = '';
+
+function pfmt(n) { return (n < 0 ? '-' : '') + sym() + Math.round(Math.abs(n)).toLocaleString(); }
+function pfmtD(n) { return pfmt(n) + '/day'; }
+function pDaysInMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+function pDaysLeft() { return pDaysInMonth() - new Date().getDate(); }
+function pExpectedPct() { return (new Date().getDate() / pDaysInMonth()) * 100; }
+
+function setPacingStatus(msg, state) {
+  document.getElementById('pmsg').textContent = msg;
+  document.getElementById('pdot').className = 'dot ' + (state || '');
+}
+
+function loadPacingSaved() {
+  try { const b = localStorage.getItem(P_STORAGE_KEY); if (b) pAllocated = JSON.parse(b) || {}; } catch {}
+}
+function persistPacing() {
+  try { localStorage.setItem(P_STORAGE_KEY, JSON.stringify(pAllocated)); } catch {}
+}
+
+function paceLabel(ab, pctUsed, exp) {
+  const pace = Math.round(pctUsed) - Math.round(exp);
+  if (!ab)                                   return { pace, label: 'No budget', cls: 'b-na' };
+  if (Math.abs(pace) <= PACE_TOLERANCE)      return { pace, label: 'On track',  cls: 'b-ok' };
+  if (pace > PACE_TOLERANCE)                 return { pace, label: 'Ahead',     cls: 'b-ahead' };
+  return                                            { pace, label: 'Behind',    cls: 'b-warn' };
+}
+
+async function fetchPacing() {
+  const urlBase = document.getElementById('pacingUrl').value.trim();
+  if (!urlBase) { setPacingStatus('Budget pacing: paste the budget tracker URL.', 'err'); return; }
+  setPacingStatus('Budget pacing: fetching…', 'busy');
+  pLastRaw = '';
+  const url = urlBase + (urlBase.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+  try {
+    const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+    const text = await res.text();
+    pLastRaw = text;
+    if (!res.ok) { setPacingStatus('Budget pacing: HTTP ' + res.status + ' error.', 'err'); return; }
+    let parsed;
+    try { parsed = JSON.parse(text); } catch (e) { setPacingStatus('Budget pacing: invalid JSON.', 'err'); return; }
+
+    let data, unmatchedCostP = 0, unmatchedCampaignsP = [], sourceLastUpdated = null, sourceErrors = null;
+    if (Array.isArray(parsed)) {
+      data = parsed;
+    } else if (parsed && Array.isArray(parsed.data)) {
+      data = parsed.data;
+      unmatchedCostP = parsed.unmatchedCost || 0;
+      unmatchedCampaignsP = parsed.unmatchedCampaigns || [];
+      sourceLastUpdated = parsed.sourceLastUpdated || null;
+      sourceErrors = parsed.sourceErrors || null;
+    } else {
+      data = [];
+    }
+    if (!data.length) { setPacingStatus('Budget pacing: no data returned.', 'err'); return; }
+
+    pLocations = data;
+    setPacingStatus('Budget pacing: connected — ' + pLocations.length + ' locations.', 'ok');
+    renderPacingUnmatched(unmatchedCostP, unmatchedCampaignsP);
+    renderPacingStale(sourceLastUpdated);
+    renderPacingErrors(sourceErrors);
+    calculatePacing();
+  } catch (e) {
+    pLastRaw = e.toString();
+    setPacingStatus('Budget pacing: fetch failed — ' + e.message, 'err');
+  }
+}
+
+function renderPacingUnmatched(cost, campaigns) {
+  const banner = document.getElementById('pUnmatchedBanner');
+  if (!cost || cost <= 0) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  document.getElementById('pUnmatchedDetail').textContent =
+    pfmt(cost) + ' in campaign spend could not be matched to a location and is excluded from the totals below.';
+  document.getElementById('pUnmatchedList').textContent = (campaigns || []).slice(0, 8)
+    .map(c => `${c.name}${c.source ? ' (' + c.source + ')' : ''} — ${pfmt(c.cost)}`).join(' · ');
+}
+
+// Flags a source whose spreadsheet wasn't updated today (e.g. a scheduled
+// export that silently didn't run).
+function renderPacingStale(sourceLastUpdated) {
+  const banner = document.getElementById('pStaleBanner');
+  if (!sourceLastUpdated || typeof sourceLastUpdated !== 'object') { banner.style.display = 'none'; return; }
+  const todayStr = new Date().toDateString();
+  const stale = [];
+  Object.entries(sourceLastUpdated).forEach(([name, iso]) => {
+    if (!iso) { stale.push(`${name} (no timestamp available)`); return; }
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) { stale.push(`${name} (unrecognized timestamp)`); return; }
+    if (d.toDateString() !== todayStr) stale.push(`${name} — last updated ${d.toLocaleString()}`);
+  });
+  if (!stale.length) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  document.getElementById('pStaleDetail').innerHTML =
+    'The figures below may be showing yesterday\'s numbers for these sources:<br>' + stale.join('<br>');
+}
+
+// Flags a source that failed to fetch on this run (timeout, HTTP error).
+function renderPacingErrors(sourceErrors) {
+  const banner = document.getElementById('pErrorBanner');
+  if (!sourceErrors || typeof sourceErrors !== 'object' || !Object.keys(sourceErrors).length) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  document.getElementById('pErrorDetail').innerHTML =
+    'These sources failed to load on this fetch — the figures below may be missing their spend entirely. Try refreshing:<br>' +
+    Object.entries(sourceErrors).map(([n, e]) => `${n}: ${e}`).join('<br>');
+}
+
+function buildStateSummaryRows(list) {
+  const out = [];
+  const exp = pExpectedPct(), dl = pDaysLeft();
+  Object.entries(STATE_SUMMARIES).forEach(([summaryLabel, members]) => {
+    const memberSet = members.map(m => m.trim().toLowerCase());
+    const parts = list.filter(c => memberSet.includes((c.location || '').trim().toLowerCase()));
+    if (!parts.length) return;
+    const platformBudget = parts.reduce((s, c) => s + (c.platformBudget || 0), 0);
+    const allocatedBudget = parts.reduce((s, c) => s + (c.allocatedBudget || 0), 0);
+    const allocatedDailyBudget = parts.reduce((s, c) => s + (c.allocatedDailyBudget || 0), 0);
+    const spent = parts.reduce((s, c) => s + (c.spent || 0), 0);
+    const platforms = {};
+    parts.forEach(c => Object.entries(c.platforms || {}).forEach(([p, v]) => {
+      if (!platforms[p]) platforms[p] = { spent: 0 };
+      platforms[p].spent += v.spent || 0;
+    }));
+    const varD = allocatedBudget - spent;
+    const pctUsed = allocatedBudget > 0 ? (spent / allocatedBudget) * 100 : 0;
+    const pl = paceLabel(allocatedBudget, pctUsed, exp);
+    const dailyNeeded = dl > 0 && allocatedBudget > 0 ? Math.max(0, (allocatedBudget - spent) / dl) : 0;
+    out.push({ location: summaryLabel, platformBudget, allocatedBudget, allocatedDailyBudget, spent, varD, pctUsed,
+               pace: pl.pace, label: pl.label, cls: pl.cls, dailyNeeded, platforms, synthetic: true, summaryOf: members });
+  });
+  return out;
+}
+
+function calculatePacing() {
+  if (!pLocations.length) return;
+  const exp = pExpectedPct(), dl = pDaysLeft();
+  let totalPlatform = 0, totalAllocated = 0, totalSpent = 0;
+
+  // Totals come ONLY from real locations; summary rows are added afterwards.
+  pEnriched = pLocations.map(loc => {
+    const pb = loc.platformBudget || 0;
+    const ab = pAllocated[loc.location] || loc.allocatedBudget || 0;
+    const s = loc.spent || 0;
+    totalPlatform += pb; totalAllocated += ab; totalSpent += s;
+    const varD = ab - s;
+    const pctUsed = ab > 0 ? (s / ab) * 100 : 0;
+    const pl = paceLabel(ab, pctUsed, exp);
+    const dailyNeeded = dl > 0 && ab > 0 ? Math.max(0, (ab - s) / dl) : 0;
+    return { ...loc, platformBudget: pb, allocatedBudget: ab, spent: s, varD, pctUsed,
+             pace: pl.pace, label: pl.label, cls: pl.cls, dailyNeeded };
+  });
+
+  const rem = totalAllocated - totalSpent;
+  document.getElementById('pmPlatform').textContent = pfmt(totalPlatform);
+  document.getElementById('pmAllocated').textContent = pfmt(totalAllocated);
+  document.getElementById('pmSpent').textContent = pfmt(totalSpent);
+  const re = document.getElementById('pmRem');
+  re.textContent = pfmt(rem);
+  re.className = 'metric-value ' + (rem >= 0 ? 'good' : 'bad');
+  document.getElementById('pmDays').textContent = dl;
+  const now = new Date();
+  document.getElementById('pTableLabel').textContent =
+    'Location pacing report — ' + MONTHS_SHORT[now.getMonth()] + ' ' + now.getFullYear() + ' to date';
+
+  pEnriched = pEnriched.concat(buildStateSummaryRows(pEnriched));
+  renderPacingTable();
+  if (activeTab === 'pacing') renderPacingChart();
+}
+
+function renderPacingTable() {
+  const search = document.getElementById('pFilterSearch').value.toLowerCase();
+  const pacingFilter = document.getElementById('pFilterPacing').value;
+  const sort = document.getElementById('pFilterSort').value;
+  const exp = pExpectedPct(), dl = pDaysLeft();
+
+  let data = pEnriched.filter(c => {
+    if (search && !c.location.toLowerCase().includes(search)) return false;
+    if (pacingFilter && c.label !== pacingFilter) return false;
+    return true;
+  });
+  data.sort((a, b) => {
+    if (!!a.synthetic !== !!b.synthetic) return a.synthetic ? 1 : -1; // summary rows last
+    if (sort === 'spent-desc')    return b.spent - a.spent;
+    if (sort === 'pct-desc')      return b.pctUsed - a.pctUsed;
+    if (sort === 'variance-desc') return a.varD - b.varD;
+    if (sort === 'variance-asc')  return b.varD - a.varD;
+    return a.location.localeCompare(b.location);
+  });
+
+  const tbody = document.getElementById('pTbody');
+  tbody.innerHTML = '';
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem 0;color:var(--faint)">No locations match your filters.</td></tr>';
+    return;
+  }
+
+  data.forEach(c => {
+    const pctR = Math.round(c.pctUsed);
+    const barColor = c.label === 'Ahead' ? '#E24B4A' : c.pctUsed >= 100 ? '#E24B4A' : c.pctUsed >= 80 ? '#EF9F27' : '#639922';
+    const varClass = c.varD >= 0 ? 'b-ok' : 'b-over';
+    const pctClass = c.pctUsed >= 100 ? 'b-over' : c.pctUsed >= 80 ? 'b-warn' : 'b-ok';
+    const tags = Object.entries(c.platforms || {}).map(([p, v]) => {
+      const lbl = p.replace('Google Ads - Account 1', 'G-Ads 1').replace('Google Ads - Account 2', 'G-Ads 2').replace('Microsoft Ads', 'MSFT');
+      return `<span class="ptag">${lbl}: ${pfmt(v.spent)}</span>`;
+    }).join('');
+
+    const allocCell = c.synthetic
+      ? `<div style="padding:3px 6px">${c.allocatedBudget ? pfmt(c.allocatedBudget) : '—'}</div>`
+      : `<span data-loc="${c.location}" onclick="startPacingEdit(this)"
+            style="display:block;cursor:pointer;padding:3px 6px;border-radius:4px" title="Click to edit">${c.allocatedBudget ? pfmt(c.allocatedBudget) : '<span style="color:var(--faint)">Click to set</span>'}</span>
+         <input class="editable" type="number" min="0" step="1" value="${c.allocatedBudget || ''}"
+            data-loc="${c.location}" onblur="stopPacingEdit(this)"
+            onkeydown="if (event.key === 'Enter') this.blur()" style="display:none" />`;
+
+    const tr = document.createElement('tr');
+    if (c.synthetic) tr.className = 'synthetic-row';
+    tr.innerHTML = `
+      <td>
+        <div class="loc-name">${c.location}${c.synthetic ? ' <span class="ptag" style="background:var(--teal-bg);color:var(--teal);border-color:var(--teal)">Summary</span>' : ''}</div>
+        <div class="platform-tags">${tags}</div>
+        ${c.synthetic ? `<div style="font-size:10px;color:var(--faint);margin-top:3px">Combines ${(c.summaryOf || []).join(' + ')} — excluded from totals above</div>` : ''}
+      </td>
+      <td>${pfmt(c.platformBudget)}</td>
+      <td>${allocCell}</td>
+      <td>${c.allocatedDailyBudget ? pfmtD(c.allocatedDailyBudget) : '—'}</td>
+      <td>${pfmt(c.spent)}</td>
+      <td><span class="badge ${varClass}">${c.varD >= 0 ? '+' : ''}${pfmt(c.varD)}</span></td>
+      <td><span class="badge ${pctClass}">${pctR}%</span></td>
+      <td>
+        <div style="font-size:10px;color:var(--faint)">${pctR}% used · ${Math.round(exp)}% expected</div>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(pctR, 100)}%;background:${barColor}"></div></div>
+      </td>
+      <td><span class="badge ${c.cls}">${c.label}</span></td>
+      <td style="font-weight:600">${c.allocatedBudget && dl > 0 ? pfmtD(c.dailyNeeded) : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function startPacingEdit(span) {
+  const input = span.nextElementSibling;
+  span.style.display = 'none';
+  input.style.display = 'block';
+  input.focus();
+  input.select();
+}
+
+function stopPacingEdit(input) {
+  pAllocated[input.dataset.loc] = parseFloat(input.value) || 0;
+  persistPacing();
+  calculatePacing();
+}
+
+function renderPacingChart() {
+  if (typeof Chart === 'undefined') return;
+  const top15 = pEnriched.filter(c => !c.synthetic).sort((a, b) => b.spent - a.spent).slice(0, 15);
+  const exp = pExpectedPct();
+  if (pChartInst) pChartInst.destroy();
+  pChartInst = new Chart(document.getElementById('pChart'), {
+    type: 'bar',
+    data: {
+      labels: top15.map(c => c.location.length > 16 ? c.location.slice(0, 15) + '…' : c.location),
+      datasets: [
+        { label: 'Allocated budget', data: top15.map(c => c.allocatedBudget), backgroundColor: '#378ADD', borderRadius: 3 },
+        { label: 'Spent',            data: top15.map(c => c.spent),           backgroundColor: '#D85A30', borderRadius: 3 },
+        { label: 'Expected by now',  data: top15.map(c => Math.round(c.allocatedBudget * (exp / 100))), backgroundColor: '#B5D4F4', borderRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, color: '#a8a8a4', autoSkip: false, maxRotation: 35 } },
+        y: { ticks: { font: { size: 11 }, color: '#a8a8a4', callback: v => sym() + Math.round(v).toLocaleString() } }
+      }
+    }
+  });
+}
+
+function exportPacingCSV() {
+  const out = [['Location', 'Platform Budget', 'Allocated Budget', 'Spent', '$ Variance', '% Used', 'Pacing', 'Daily Needed']];
+  const dl = pDaysLeft();
+  pEnriched.forEach(c => {
+    out.push([
+      c.synthetic ? c.location + ' (State Summary — excluded from totals)' : c.location,
+      Math.round(c.platformBudget), c.allocatedBudget || '', Math.round(c.spent * 100) / 100,
+      Math.round(c.varD), Math.round(c.pctUsed) + '%', c.label,
+      c.allocatedBudget && dl > 0 ? Math.round(c.dailyNeeded * 100) / 100 : ''
+    ]);
+  });
+  const csv = out.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'budget-pacing-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+}
+
+// =====================================================================
+// Start-up
+// =====================================================================
 loadSaved();
+loadPacingSaved();
+showTab(location.hash === '#pacing' ? 'pacing' : 'results');
 if (document.getElementById('scriptUrl').value) fetchData();
+if (document.getElementById('pacingUrl').value) fetchPacing();
 </script>
 </body>
 </html>
