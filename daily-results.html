@@ -117,6 +117,12 @@ details[open] summary { margin-bottom: 10px; }
 tr.synthetic-row td { background: var(--teal-bg) !important; }
 .legend-row { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .legend-row span { display: inline-flex; align-items: center; gap: 5px; }
+.conv-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.conv-chip { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--bg); }
+.conv-chip .metric-label { margin-bottom: 4px; }
+.conv-chip .metric-value { font-size: 18px; }
+.conv-tbl td.num, .conv-tbl th.num { text-align: right; }
+.conv-zero { color: var(--faint); }
 @media (max-width: 900px) { .metrics, .metrics5 { grid-template-columns: 1fr 1fr; } .main { padding: 1rem; } .range-grid { grid-template-columns: 1fr; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -370,6 +376,27 @@ tr.synthetic-row td { background: var(--teal-bg) !important; }
     </div>
   </div>
 
+  <!-- Conversion types -->
+  <div class="card" id="convCard" style="display:none;">
+    <div class="section-label" style="margin-bottom:12px" id="convLabel">Conversion types</div>
+    <div class="notice" id="convNotice" style="display:none;"></div>
+    <div class="conv-summary" id="convSummary"></div>
+    <div class="filter-row">
+      <input id="convSearch" placeholder="🔍 Search location…" oninput="renderConvTable()" />
+      <select id="convSort" onchange="renderConvTable()">
+        <option value="total">Most conversions</option>
+        <option value="location">A–Z</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table class="conv-tbl">
+        <thead><tr id="convHead"></tr></thead>
+        <tbody id="convBody"></tbody>
+      </table>
+    </div>
+    <p class="hint">Conversion types come from separate Google Ads (conversion action) and Microsoft Ads (goal) exports. Names are grouped into these types by the aggregator; anything it doesn't recognise appears as "Other".</p>
+  </div>
+
   </div><!-- /tab-results -->
 
 </div>
@@ -384,6 +411,7 @@ let dailyA = [], dailyB = [];
 let unmatchedCost = 0, unmatchedCampaigns = [];
 // Null until the user picks ranges; then sent to the backend on every fetch.
 let explicitRanges = null;
+let convTypes = [], convA = null, convB = null, convError = null;
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -564,6 +592,10 @@ async function fetchData() {
     dailyB = json.dailyB || [];
     unmatchedCost = json.unmatchedCost || 0;
     unmatchedCampaigns = json.unmatchedCampaigns || [];
+    convTypes = json.convTypes || [];
+    convA = json.convA || null;
+    convB = json.convB || null;
+    convError = json.convError || null;
     document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
     setStatus('Connected — ' + rows.length + ' locations.', 'ok');
     populateRangeInputs();
@@ -627,6 +659,7 @@ function calculate() {
   renderChart();
   renderDailyTable();
   renderTable();
+  renderConv();
 }
 
 function metricFormatter(key) {
@@ -753,19 +786,111 @@ function renderTable() {
 }
 
 function exportCSV() {
-  const rowsOut = [['Range', 'Location', 'Budget (pro-rata)', 'Cost', 'Impressions', 'Clicks', 'Avg CPC', 'CTR', 'Conversions', 'Cost/Conversion', 'Conv Rate']];
+  const types = convA ? convTypes : [];
+  const rowsOut = [['Range', 'Location', 'Budget (pro-rata)', 'Cost', 'Impressions', 'Clicks', 'Avg CPC', 'CTR', 'Conversions', 'Cost/Conversion', 'Conv Rate'].concat(types)];
   const label = rangeLabel(rangeA);
   rows.forEach(r => {
-    rowsOut.push([label, r.location, r.allocatedBudget || 0, r.cost, r.impressions, r.clicks, r.avgCpc, r.ctr + '%', r.conversions, r.costPerConversion, r.convRate + '%']);
+    const t = (convA && convA.byLocation[r.location]) || {};
+    rowsOut.push([label, r.location, r.allocatedBudget || 0, r.cost, r.impressions, r.clicks, r.avgCpc, r.ctr + '%', r.conversions, r.costPerConversion, r.convRate + '%']
+      .concat(types.map(k => t[k] || 0)));
   });
   if (overall) {
-    rowsOut.push([label, 'Overall', overall.allocatedBudget || 0, overall.cost, overall.impressions, overall.clicks, overall.avgCpc, overall.ctr + '%', overall.conversions, overall.costPerConversion, overall.convRate + '%']);
+    rowsOut.push([label, 'Overall', overall.allocatedBudget || 0, overall.cost, overall.impressions, overall.clicks, overall.avgCpc, overall.ctr + '%', overall.conversions, overall.costPerConversion, overall.convRate + '%']
+      .concat(types.map(k => (convA && convA.overall[k]) || 0)));
   }
   const csv = rowsOut.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   a.download = 'daily-results-' + (rangeA ? rangeA.start + '_to_' + rangeA.end : new Date().toISOString().slice(0, 10)) + '.csv';
   a.click();
+}
+
+// =====================================================================
+// Conversion types by location
+// =====================================================================
+function convVar(cur, prev) {
+  if (prev === undefined || prev === null) return null;
+  return { pct: prev ? ((cur - prev) / prev) * 100 : null, previous: prev };
+}
+function convHasPrev() { return !!(convB && comparison && comparison.hasPreviousData); }
+
+function renderConv() {
+  const card = document.getElementById('convCard');
+  if (!convA || !convTypes.length) {
+    card.style.display = convError ? '' : 'none';
+    if (convError) {
+      document.getElementById('convNotice').style.display = 'block';
+      document.getElementById('convNotice').textContent = 'Conversion types could not be loaded: ' + convError;
+      document.getElementById('convSummary').innerHTML = '';
+      document.getElementById('convHead').innerHTML = '';
+      document.getElementById('convBody').innerHTML = '';
+    }
+    return;
+  }
+  card.style.display = '';
+  document.getElementById('convLabel').textContent = 'Conversion types by location — ' + rangeLabel(rangeA);
+
+  // Notices: types not adding up to the conversions above, unrecognised names
+  const notes = [];
+  const sourceShort = s => s.replace('Google Ads - Account 1', 'Google Ads A04+').replace('Google Ads - Account 2', 'Google Ads A04');
+  Object.entries(convA.reconcile || {}).forEach(([src, x]) => {
+    if (Math.abs(x.types - x.daily) >= 0.5) {
+      notes.push(`${sourceShort(src)}: conversion types add up to ${fmtConv(x.types)} but the results above show ${fmtConv(x.daily)} conversions for this range.`);
+    }
+  });
+  if (notes.length) notes.push('This usually means one of the exports for these days hasn\'t arrived yet or a day needs re-importing.');
+  if (convA.otherActions && convA.otherActions.length) {
+    notes.push('Unrecognised conversion names (shown as "Other"): ' + convA.otherActions.map(o => `${o.name} (${fmtConv(o.conversions)})`).join('; ') + '.');
+  }
+  if (convA.unmatched > 0) notes.push(`${fmtConv(convA.unmatched)} conversions couldn't be matched to a location and are excluded below.`);
+  const nb = document.getElementById('convNotice');
+  nb.style.display = notes.length ? 'block' : 'none';
+  nb.innerHTML = notes.map(n => '⚠️ ' + n).join('<br>');
+
+  // Summary chips
+  const hasPrev = convHasPrev();
+  document.getElementById('convSummary').innerHTML = convTypes.map(t => {
+    const cur = convA.overall[t] || 0;
+    const prev = hasPrev ? (convB.overall[t] || 0) : null;
+    const v = hasPrev ? varianceHTML(convVar(cur, prev), 'upGood', fmtConv, cur) : '';
+    return `<div class="conv-chip"><div class="metric-label">${t}</div><div class="metric-value">${fmtConv(cur)}</div><div class="metric-sub">${v}</div></div>`;
+  }).join('');
+
+  document.getElementById('convHead').innerHTML =
+    '<th>Location</th><th class="num">Total</th>' + convTypes.map(t => `<th class="num">${t}</th>`).join('');
+  renderConvTable();
+}
+
+function renderConvTable() {
+  if (!convA || !convTypes.length) return;
+  const search = document.getElementById('convSearch').value.toLowerCase();
+  const sort = document.getElementById('convSort').value;
+  const hasPrev = convHasPrev();
+  const locs = {};
+  Object.keys(convA.byLocation).forEach(l => { locs[l] = true; });
+  rows.forEach(r => { locs[r.location] = true; });
+
+  const sumOf = o => convTypes.reduce((s, t) => s + ((o && o[t]) || 0), 0);
+  let list = Object.keys(locs)
+    .filter(l => !search || l.toLowerCase().includes(search))
+    .map(l => ({ location: l, a: convA.byLocation[l] || {}, b: hasPrev ? (convB.byLocation[l] || {}) : null }))
+    .map(x => Object.assign(x, { total: sumOf(x.a), prevTotal: x.b ? sumOf(x.b) : null }));
+  list.sort((x, y) => sort === 'location' ? x.location.localeCompare(y.location) : (y.total - x.total) || x.location.localeCompare(y.location));
+
+  const cell = (cur, prev, bold) => {
+    const main = cur ? `<span class="cell-main"${bold ? ' style="font-weight:600"' : ''}>${fmtConv(cur)}</span>` : `<span class="cell-main conv-zero">0</span>`;
+    const v = (prev !== null && (cur || prev)) ? `<span class="cell-var">${varianceHTML(convVar(cur, prev), 'upGood', fmtConv, cur)}</span>` : '';
+    return `<td class="num">${main}${v}</td>`;
+  };
+
+  const body = document.getElementById('convBody');
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="${convTypes.length + 2}" style="text-align:center;padding:2rem 0;color:var(--faint)">No locations match your search.</td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(x => `<tr><td class="loc-name">${x.location}</td>` +
+    cell(x.total, x.prevTotal, true) +
+    convTypes.map(t => cell(x.a[t] || 0, x.b ? (x.b[t] || 0) : null)).join('') + '</tr>').join('');
 }
 
 // =====================================================================
